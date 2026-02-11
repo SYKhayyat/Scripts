@@ -53,6 +53,34 @@ class DocxToOrgCompleteConverter:
             else:
                 print("Please enter 'y' for yes, 'n' for no, or 'skip'")
     
+    def resolve_conflict(self, output_file: str, conflict_mode: str = "ask") -> bool:
+        """Resolve file conflicts based on mode"""
+        if conflict_mode == "overwrite":
+            return True
+        elif conflict_mode == "suffix":
+            return False
+        elif conflict_mode == "ask":
+            return self.ask_user_for_conflict_resolution(output_file)
+        else:
+            print(f"Unknown conflict mode: {conflict_mode}")
+            return self.ask_user_for_conflict_resolution(output_file)
+    
+    def add_numeric_suffix(self, output_file: str) -> str:
+        """Add numeric suffix to filename if file exists"""
+        base_name = output_file
+        suffix = 1
+        
+        while os.path.exists(base_name):
+            # Remove existing suffix if any
+            if suffix > 1:
+                base_name = base_name.rstrip(f".{suffix-1}")
+            
+            new_name = f"{base_name}.{suffix}"
+            base_name = new_name
+            suffix += 1
+        
+        return base_name
+    
     def get_user_input(self) -> List[Tuple[str, str]]:
         """Get input from user - can be file or folder"""
         inputs = []
@@ -182,6 +210,44 @@ class DocxToOrgCompleteConverter:
                     bold_text.append(''.join(current_bold))
                     current_bold = []
                 current_regular.append(run.text)
+        
+        # Add any remaining text
+        if current_bold:
+            bold_text.append(''.join(current_bold))
+        if current_regular:
+            regular_text.append(''.join(current_regular))
+        
+        return bold_text, regular_text
+    
+    def extract_bold_portions_with_footnotes(self, paragraph) -> Tuple[List[str], List[str]]:
+        """Extract bold and regular text portions while preserving footnote references"""
+        bold_text = []
+        regular_text = []
+        current_bold = []
+        current_regular = []
+        
+        # Find footnote references first
+        footnote_refs = self.find_footnote_references_in_paragraph(paragraph)
+        footnote_ref_map = {run_idx: ref for run_idx, ref in footnote_refs}
+        
+        for run_idx, run in enumerate(paragraph.runs):
+            # Get the text for this run
+            run_text = run.text
+            
+            # Add footnote reference if this run has one
+            if run_idx in footnote_ref_map:
+                run_text += footnote_ref_map[run_idx]
+            
+            if run.bold:
+                if current_regular:
+                    regular_text.append(''.join(current_regular))
+                    current_regular = []
+                current_bold.append(run_text)
+            else:
+                if current_bold:
+                    bold_text.append(''.join(current_bold))
+                    current_bold = []
+                current_regular.append(run_text)
         
         # Add any remaining text
         if current_bold:
@@ -614,7 +680,8 @@ class DocxToOrgCompleteConverter:
             
             # Handle bold text in non-centered paragraphs
             if self.has_bold_text(paragraph):
-                bold_portions, regular_portions = self.extract_bold_portions(paragraph)
+                # Use the enhanced method that preserves footnotes
+                bold_portions, regular_portions = self.extract_bold_portions_with_footnotes(paragraph)
                 
                 # Add bold portions as level 2 headers
                 for bold_text in bold_portions:
@@ -637,7 +704,7 @@ class DocxToOrgCompleteConverter:
         processed_text = self._process_text_with_footnotes(paragraph)
         return processed_text.strip()
     
-    def convert_docx_to_org(self, input_file: str, output_file: str, check_conflicts: bool = True) -> bool:
+    def convert_docx_to_org(self, input_file: str, output_file: str, check_conflicts: bool = True, conflict_mode: str = "ask") -> bool:
         """Convert a single docx file to org-mode with footnotes and lists"""
         try:
             # Check for conflicts if requested
@@ -730,6 +797,23 @@ if __name__ == "__main__":
     if len(sys.argv) >= 2:
         input_path = sys.argv[1]
         output_file = sys.argv[2] if len(sys.argv) > 2 else None
+        conflict_mode = "ask"  # default mode
+        overwrite_all = False
+        
+        # Parse additional arguments
+        for arg in sys.argv[3:]:
+            if arg.lower() in ['--overwrite-all', '-o']:
+                overwrite_all = True
+                conflict_mode = "overwrite"
+            elif arg.lower() in ['--add-suffix', '-a']:
+                overwrite_all = False
+                conflict_mode = "suffix"
+            else:
+                print(f"Unknown argument: {arg}")
+                print("Usage: python3 docx_to_org_complete.py <input> [output] [--overwrite-all|-o] [--add-suffix|-a]")
+                print("  --overwrite-all, -o: Overwrite all existing files")
+                print("  --add-suffix, -a: Add numeric suffix to conflicting files")
+                sys.exit(1)
         
         if not os.path.exists(input_path):
             print(f"Path not found: {input_path}")
@@ -739,7 +823,7 @@ if __name__ == "__main__":
         if os.path.isfile(input_path) and input_path.lower().endswith('.docx'):
             if not output_file:
                 output_file = input_path.replace('.docx', '.org')
-            if converter.convert_docx_to_org(input_path, output_file, check_conflicts=False):
+            if converter.convert_docx_to_org(input_path, output_file, check_conflicts=False, conflict_mode=conflict_mode):
                 print(f"Successfully converted {input_path} to {output_file}")
             else:
                 print(f"Failed to convert {input_path}")
@@ -756,7 +840,7 @@ if __name__ == "__main__":
             success_count = 0
             for docx_file in docx_files:
                 org_file = docx_file.replace('.docx', '.org')
-                if converter.convert_docx_to_org(docx_file, org_file, check_conflicts=False):
+                if converter.convert_docx_to_org(docx_file, org_file, check_conflicts=False, conflict_mode=conflict_mode):
                     success_count += 1
             
             print(f"Batch conversion complete: {success_count}/{len(docx_files)} files converted successfully.")

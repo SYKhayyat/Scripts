@@ -1,0 +1,6 @@
+* Emacs:
+** Right-to-left:
+(setq-local bidi-paragraph-direction 'right-to-left)
+* Ollama:
+To fully remove a Llama model in NixOS, use
+ollama rm <model_name> (e.g., ollama rm llama3) to remove the manifest, followed by rm -rf ~/.ollama/models/blobs to delete the actual model data, as simply removing the model does not always free up disk space.
