@@ -10,9 +10,6 @@ import re
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 import glob
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
 try:
     from docx import Document
     from docx.shared import Pt
@@ -32,9 +29,6 @@ class DocxToOrgCompleteConverter:
         self.footnote_references = {}  # Maps original reference to footnote number
         self.list_depth_stack = []  # Track nested list levels
         self.list_item_counters = []  # Track numbering for ordered lists
-        self.conflict_mode = "ask"  # Global conflict resolution mode
-        self.batch_results = []  # Track batch processing results
-        self.lock = threading.Lock()  # Thread safety for batch operations
     
     def find_docx_files_recursive(self, directory: str) -> List[str]:
         """Find all .docx files in directory recursively"""
@@ -48,7 +42,7 @@ class DocxToOrgCompleteConverter:
             print(f"Error scanning directory {directory}: {e}")
         return docx_files
     
-    def resolve_conflict(self, output_file: str) -> bool:
+    def ask_user_for_conflict_resolution(self, output_file: str) -> bool:
         """Ask user how to resolve file conflict"""
         while True:
             choice = input(f"File '{output_file}' already exists. Overwrite? [y/n/skip] ").strip().lower()
@@ -58,6 +52,18 @@ class DocxToOrgCompleteConverter:
                 return False
             else:
                 print("Please enter 'y' for yes, 'n' for no, or 'skip'")
+    
+    def resolve_conflict(self, output_file: str, conflict_mode: str = "ask") -> bool:
+        """Resolve file conflicts based on mode"""
+        if conflict_mode == "overwrite":
+            return True
+        elif conflict_mode == "suffix":
+            return False
+        elif conflict_mode == "ask":
+            return self.ask_user_for_conflict_resolution(output_file)
+        else:
+            print(f"Unknown conflict mode: {conflict_mode}")
+            return self.ask_user_for_conflict_resolution(output_file)
     
     def add_numeric_suffix(self, output_file: str) -> str:
         """Add numeric suffix to filename if file exists"""
@@ -75,7 +81,7 @@ class DocxToOrgCompleteConverter:
         
         return base_name
     
-    def get_user_files(self) -> List[Tuple[str, str]]:
+    def get_user_input(self) -> List[Tuple[str, str]]:
         """Get input from user - can be file or folder"""
         inputs = []
         
@@ -131,6 +137,47 @@ class DocxToOrgCompleteConverter:
         
         return inputs
     
+    def get_user_files(self) -> List[Tuple[str, str]]:
+        """Interactive file selection for input and output paths"""
+        file_pairs = []
+        
+        print("=== Complete Docx to Org-mode Converter (Footnotes + Lists) ===")
+        print("Enter file paths (or 'done' to finish, 'quit' to exit)")
+        
+        while True:
+            # Get input file
+            input_file = input("\nEnter docx file path: ").strip()
+            
+            if input_file.lower() == 'quit':
+                return []
+            elif input_file.lower() == 'done':
+                break
+            elif not input_file:
+                print("Please enter a valid file path")
+                continue
+            
+            # Check if file exists
+            if not os.path.exists(input_file):
+                print(f"File not found: {input_file}")
+                continue
+            
+            # Check if it's a docx file
+            if not input_file.lower().endswith('.docx'):
+                print("File must be a .docx file")
+                continue
+            
+            # Suggest output file
+            suggested_output = input_file.replace('.docx', '.org')
+            output_file = input(f"Enter output file path [{suggested_output}]: ").strip()
+            
+            if not output_file:
+                output_file = suggested_output
+            
+            file_pairs.append((input_file, output_file))
+            print(f"Added: {input_file} -> {output_file}")
+        
+        return file_pairs
+    
     def is_centered(self, paragraph) -> bool:
         """Check if paragraph is centered"""
         try:
@@ -184,7 +231,7 @@ class DocxToOrgCompleteConverter:
         footnote_ref_map = {run_idx: ref for run_idx, ref in footnote_refs}
         
         for run_idx, run in enumerate(paragraph.runs):
-            # Get text for this run
+            # Get the text for this run
             run_text = run.text
             
             # Add footnote reference if this run has one
@@ -200,7 +247,7 @@ class DocxToOrgCompleteConverter:
                 if current_bold:
                     bold_text.append(''.join(current_bold))
                     current_bold = []
-                current_regular.append(run.text)
+                current_regular.append(run_text)
         
         # Add any remaining text
         if current_bold:
@@ -221,7 +268,7 @@ class DocxToOrgCompleteConverter:
                     if 'bullet' in style_name or 'unordered' in style_name:
                         # Try to get level from style XML
                         ilvl_elements = paragraph.style.element.xpath('.//w:ilvl')
-                        level_val = ilvl_elements[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val', '0') if ilvl_elements else 0
+                        level_val = int(ilvl_elements[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val', '0')) if ilvl_elements else 0
                         
                         # If XML level is 0, try fallback from style name
                         if level_val == 0:
@@ -234,7 +281,7 @@ class DocxToOrgCompleteConverter:
                     elif 'number' in style_name or 'ordered' in style_name:
                         # Try to get level from style XML
                         ilvl_elements = paragraph.style.element.xpath('.//w:ilvl')
-                        level_val = ilvl_elements[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val', '0') if ilvl_elements else 0
+                        level_val = int(ilvl_elements[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val', '0')) if ilvl_elements else 0
                         
                         # If XML level is 0, try fallback from style name
                         if level_val == 0:
@@ -244,7 +291,6 @@ class DocxToOrgCompleteConverter:
                             elif style_name.endswith(' 3'):
                                 level_val = 2
                         return 'ordered', level_val
-                        return 'ordered', level_val
             
             # Method 2: Check paragraph numbering properties
             if hasattr(paragraph, '_element'):
@@ -252,12 +298,13 @@ class DocxToOrgCompleteConverter:
                 # Look for numbering elements
                 num_elements = element.xpath('.//w:numPr')
                 if num_elements:
+                    num_pr = num_elements[0]
                     # Get indentation level
-                    ilvl_elements = num_elements[0].xpath('.//w:ilvl')
-                    level = ilvl_elements[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val', '0') if ilvl_elements else 0
+                    ilvl_elements = num_pr.xpath('.//w:ilvl')
+                    level = ilvl_elements[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val', '0') if ilvl_elements else '0'
                     
                     # Get numbering ID to determine list type
-                    num_id_elements = num_elements[0].xpath('.//w:numId')
+                    num_id_elements = num_pr.xpath('.//w:numId')
                     if num_id_elements:
                         return 'ordered', int(level)
                     else:
@@ -308,9 +355,9 @@ class DocxToOrgCompleteConverter:
             # Remove common bullet markers
             bullet_patterns = [
                 r'^[•·▪▫‣⁃]\s+',
-                    r'^[o*+−-]\s+',
-                    r'^[◦◉○●]\s+',
-                    r'^[•]\s+'
+                r'^[o*+−-]\s+',
+                r'^[◦◉○●]\s+',
+                r'^[•]\s+'
             ]
             for pattern in bullet_patterns:
                 text = re.sub(pattern, '', text)
@@ -318,15 +365,14 @@ class DocxToOrgCompleteConverter:
             # Remove numbered markers
             numbered_patterns = [
                 r'^\d+\.\s+',
-                    r'^\d+\)\s+',
-                    r'^\d+\)\s+',
-                    r'^[a-zA-Z]\.\s+',
-                    r'^[a-zA-Z]\)\s+',
-                    r'^[ivxlIVXL]+\.\s+',
-                    r'^[IVXL]+\.\s+'
-                ]
+                r'^\d+\)\s+',
+                r'^[a-zA-Z]\.\s+',
+                r'^[a-zA-Z]\)\s+',
+                r'^[ivxlIVXL]+\.\s+',
+                r'^[IVXL]+\)\s+'
+            ]
             for pattern in numbered_patterns:
-                    text = re.sub(pattern, '', text)
+                text = re.sub(pattern, '', text)
         
         return text.strip()
     
@@ -381,8 +427,8 @@ class DocxToOrgCompleteConverter:
                                     footnote_text = self._extract_text_from_footnote_element(footnote)
                                     if footnote_text.strip():
                                         self.footnotes.append({
-                                                    'id': footnote_id,
-                                                    'text': footnote_text.strip()
+                                            'id': footnote_id,
+                                            'text': footnote_text.strip()
                                         })
                 except Exception as e:
                     print(f"Warning: Could not access footnotes part: {e}")
@@ -405,24 +451,24 @@ class DocxToOrgCompleteConverter:
                             
                             # Find all endnote elements
                             endnote_elements = root.findall('.//w:endnote', ns)
-                                
-                                for endnote in endnote_elements:
-                                    # Get endnote ID
-                                    endnote_id = endnote.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
-                                    if endnote_id and endnote_id != '0':  # Skip separator/continuation notes
-                                        # Extract endnote text
-                                        endnote_text = self._extract_text_from_footnote_element(endnote)
-                                        if endnote_text.strip():
-                                            self.footnotes.append({
-                                                    'id': endnote_id,
-                                                    'text': endnote_text.strip()
-                                            })
+                            
+                            for endnote in endnote_elements:
+                                # Get endnote ID
+                                endnote_id = endnote.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
+                                if endnote_id and endnote_id != '0':  # Skip separator/continuation notes
+                                    # Extract endnote text
+                                    endnote_text = self._extract_text_from_footnote_element(endnote)
+                                    if endnote_text.strip():
+                                        self.footnotes.append({
+                                            'id': endnote_id,
+                                            'text': endnote_text.strip()
+                                        })
                 except Exception as e:
                     print(f"Warning: Could not access endnotes part: {e}")
             
             # Method 2: Try alternative approach using document relationships
             try:
-                if hasattr(doc, '_part') and hasattr(doc._part, 'rels'):
+                if hasattr(doc, '_part',) and hasattr(doc._part, 'rels'):
                     # Look for footnotes relationship
                     for rel_id, rel in doc._part.rels.items():
                         if hasattr(rel, 'reltype') and rel.reltype == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes':
@@ -430,53 +476,39 @@ class DocxToOrgCompleteConverter:
                             if footnotes_part:
                                 import xml.etree.ElementTree as ET
                                 root = ET.fromstring(footnotes_part.blob)
-                                
-                                # Define namespace
                                 ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
-                                
-                                # Find all footnote elements
                                 footnote_elements = root.findall('.//w:footnote', ns)
                                 
                                 for footnote in footnote_elements:
-                                    # Get footnote ID
                                     footnote_id = footnote.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
-                                    if footnote_id and footnote_id != '0': # Skip separator/continuation notes
-                                        # Extract footnote text
+                                    if footnote_id and footnote_id != '0':
                                         footnote_text = self._extract_text_from_footnote_element(footnote)
                                         if footnote_text.strip():
                                             self.footnotes.append({
-                                                    'id': footnote_id,
-                                                    'text': footnote_text.strip()
+                                                'id': footnote_id,
+                                                'text': footnote_text.strip()
                                             })
+                        
                         # Check for endnotes
-                        elif hasattr(rel, 'reltype') and rel.reltype == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes'):
+                        if hasattr(rel, 'reltype') and rel.reltype == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes':
                             endnotes_part = rel.target_part
                             if endnotes_part:
                                 import xml.etree.ElementTree as ET
-                                root = ET.fromstring(endnotes_xml)
-                                
-                                # Define namespace
+                                root = ET.fromstring(endnotes_part.blob)
                                 ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
-                                
-                                # Find all endnote elements
                                 endnote_elements = root.findall('.//w:endnote', ns)
                                 
                                 for endnote in endnote_elements:
-                                    # Get endnote ID
                                     endnote_id = endnote.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}id')
-                                    if endnote_id and endnote_id != '0': # Skip separator/continuation notes
-                                        # Extract endnote text
+                                    if endnote_id and endnote_id != '0':
                                         endnote_text = self._extract_text_from_footnote_element(endnote)
                                         if endnote_text.strip():
                                             self.footnotes.append({
-                                                    'id': endnote_id,
-                                                    'text': endnote_text.strip()
+                                                'id': endnote_id,
+                                                'text': endnote_text.strip()
                                             })
-                except Exception as e:
-                    print(f"Warning: Could not extract footnotes from XML: {e}")
-            
             except Exception as e:
-                print(f"Warning: Could not extract footnotes from XML: {e}")
+                print(f"Warning: Alternative footnote extraction failed: {e}")
                     
         except Exception as e:
             print(f"Warning: Could not extract footnotes from XML: {e}")
@@ -494,6 +526,27 @@ class DocxToOrgCompleteConverter:
             return ''.join(text_parts)
         except:
             return ""
+    
+    def detect_footnote_references_in_text(self, text: str) -> List[int]:
+        """Detect potential footnote references in text (numbers, symbols, etc.)"""
+        import re
+        # Look for superscript-like patterns: numbers, symbols
+        patterns = [
+            r'\d+',  # numbers
+            r'[†‡§¶]',  # common footnote symbols
+        ]
+        
+        references = []
+        for pattern in patterns:
+            matches = re.findall(pattern, text)
+            for match in matches:
+                try:
+                    references.append(int(match))
+                except ValueError:
+                    # For symbols, just add them as is
+                    references.append(match)
+        
+        return references
     
     def find_footnote_references_in_paragraph(self, paragraph) -> List[Tuple[str, str]]:
         """Find footnote references within a paragraph and return (original_text, replacement) pairs"""
@@ -553,10 +606,27 @@ class DocxToOrgCompleteConverter:
                 processed_runs.add(run_idx)
             else:
                 # Just add the run text
-                if run.text and run_idx not in processed_runs:
+                if run.text:
                     result_parts.append(run.text)
         
         return ''.join(result_parts)
+    
+    def _apply_footnote_references_to_text(self, text: str, footnote_refs, paragraph) -> str:
+        """Apply footnote references to extracted text portions"""
+        if not footnote_refs:
+            return text
+        
+        # For now, append footnote references at the end of text portions
+        # This is a simplified approach - in practice, we'd need more sophisticated positioning
+        result = text
+        for run_idx, footnote_ref in footnote_refs:
+            # Try to find if this text corresponds to a run with footnotes
+            if run_idx < len(paragraph.runs) and paragraph.runs[run_idx].text in text:
+                # If the text matches the run content, append the footnote reference
+                if not result.endswith(footnote_ref):
+                    result += footnote_ref
+        
+        return result
     
     def process_paragraph(self, paragraph) -> List[str]:
         """Process a single paragraph and return org-mode lines with footnote references and list support"""
@@ -628,22 +698,20 @@ class DocxToOrgCompleteConverter:
         
         return lines
     
-    def convert_docx_to_org(self, input_file: str, output_file: str, check_conflicts: bool = True, conflict_mode: str = None) -> bool:
+    def process_paragraph_with_footnotes(self, paragraph) -> str:
+        """Simplified method to process paragraph with footnotes"""
+        # Get the full text with footnote references
+        processed_text = self._process_text_with_footnotes(paragraph)
+        return processed_text.strip()
+    
+    def convert_docx_to_org(self, input_file: str, output_file: str, check_conflicts: bool = True, conflict_mode: str = "ask") -> bool:
         """Convert a single docx file to org-mode with footnotes and lists"""
         try:
             # Check for conflicts if requested
             if check_conflicts and os.path.exists(output_file):
-                if conflict_mode == "overwrite":
-                    pass  # Just overwrite
-                elif conflict_mode == "suffix":
-                    output_file = self.add_numeric_suffix(output_file)
-                elif conflict_mode == "ask":
-                    if not self.resolve_conflict(output_file):
-                        print(f"⏭ Skipped {input_path} (conflict resolved by user)")
-                        return False
-                else:
-                    print(f"Unknown conflict mode: {conflict_mode}")
-                    return self.resolve_conflict(output_file)
+                if not self.ask_user_for_conflict_resolution(output_file):
+                    print(f"⏭ Skipped {input_file} (conflict resolved by user)")
+                    return False
             
             print(f"Converting {input_file}...")
             
@@ -664,6 +732,12 @@ class DocxToOrgCompleteConverter:
                 print(f"Found {len(self.footnotes)} footnotes")
             else:
                 print("No footnotes found in document")
+                # Check for potential footnote references in text
+                for i, para in enumerate(doc.paragraphs):
+                    if para.text.strip():
+                        refs = self.detect_footnote_references_in_text(para.text)
+                        if refs:
+                            print(f"Paragraph {i+1} contains potential footnote references: {refs}")
             
             org_content = []
             
@@ -695,200 +769,9 @@ class DocxToOrgCompleteConverter:
             print(f"✗ Error converting {input_file}: {str(e)}")
             return False
     
-    def convert_file_batch(self, input_file: str, output_file: str) -> Tuple[bool, str]:
-        """Convert single file in batch mode, return success status and message"""
-        try:
-            if self.convert_docx_to_org(input_file, output_file):
-                return True, f"✓ Converted: {input_file} → {output_file}"
-            else:
-                return False, f"✗ Failed: {input_file}"
-        except Exception as e:
-            return False, f"✗ Error with {input_file}: {str(e)}"
-    
-    def process_batch_files(self, file_pairs: List[Tuple[str, str]], max_workers: int = 4) -> Dict[str, int]:
-        """Process multiple files in parallel with progress tracking"""
-        start_time = time.time()
-        results = {"success": 0, "failed": 0, "skipped": 0}
-        
-        print(f"\n🔄 Processing {len(file_pairs)} files...")
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks
-            future_to_file = {
-                executor.submit(self.convert_file_batch, input_file, output_file): (input_file, output_file)
-                for input_file, output_file in file_pairs
-            }
-            
-            # Process completed tasks
-            for i, future in enumerate(as_completed(future_to_file), 1):
-                input_file, output_file = future_to_file[future]
-                try:
-                    success, message = future.result()
-                    if success:
-                        results["success"] += 1
-                    else:
-                        results["failed"] += 1
-                    print(f"[{i}/{len(file_pairs)}] {message}")
-                except Exception as e:
-                    results["failed"] += 1
-                    print(f"[{i}/{len(file_pairs)}] ✗ Error with {input_file}: {str(e)}")
-        
-        elapsed = time.time() - start_time
-        print(f"\n✅ Batch processing completed in {elapsed:.1f} seconds")
-        print(f"📊 Results: {results['success']} successful, {results['failed']} failed, {results['skipped']} skipped")
-        
-        return results
-    
-    def handle_batch_mode(self, input_paths: List[str], output_dir: Optional[str] = None):
-        """Handle batch conversion of multiple files/directories"""
-        all_file_pairs = []
-        
-        # Collect all files to process
-        for input_path in input_paths:
-            if not os.path.exists(input_path):
-                print(f"⚠️  Path not found: {input_path}")
-                continue
-                
-            if os.path.isfile(input_path) and input_path.lower().endswith('.docx'):
-                # Single file
-                if output_dir:
-                    output_file = os.path.join(output_dir, os.path.basename(input_path).replace('.docx', '.org'))
-                else:
-                    output_file = input_path.replace('.docx', '.org')
-                all_file_pairs.append((input_path, output_file))
-                
-            elif os.path.isdir(input_path):
-                # Directory - find all docx files
-                docx_files = self.find_docx_files_recursive(input_path)
-                if not docx_files:
-                    print(f"⚠️  No .docx files found in {input_path}")
-                    continue
-                    
-                print(f"📁 Found {len(docx_files)} files in {input_path}")
-                for docx_file in docx_files:
-                    if output_dir:
-                        # Preserve subdirectory structure
-                        rel_path = os.path.relpath(docx_file, input_path)
-                        output_file = os.path.join(output_dir, rel_path.replace('.docx', '.org'))
-                    else:
-                        output_file = docx_file.replace('.docx', '.org')
-                    all_file_pairs.append((docx_file, output_file))
-        
-        if not all_file_pairs:
-            print("❌ No files to process")
-            return
-            
-        print(f"🎯 Ready to process {len(all_file_pairs)} files")
-        if self.conflict_mode == "ask":
-            confirm = input("Proceed with batch conversion? [y/N] ").strip().lower()
-            if confirm not in ['y', 'yes']:
-                print("❌ Batch conversion cancelled")
-                return
-        
-        # Process all files
-        self.process_batch_files(all_file_pairs)
-    
-    def handle_folder(self, folder_path: str):
-        """Handle folder conversion (legacy method)"""
-        docx_files = self.find_docx_files_recursive(folder_path)
-        if not docx_files:
-            print(f"No .docx files found in {folder_path}")
-            return
-            
-        file_pairs = [(docx_file, docx_file.replace('.docx', '.org')) for docx_file in docx_files]
-        self.process_batch_files(file_pairs)
-    
-def print_help(self):
-        """Print usage help"""
-        print("Usage: python3 docx_to_org_complete.py <input> [output] [options]")
-        print("       python3 docx_to_org_complete.py --batch <file1> <file2> ... [options]")
-        print("")
-        print("Arguments:")
-        print("  input     Docx file or folder path")
-        print("  output    Output org file (only for single file input)")
-        print("")
-        print("Options:")
-        print("  --batch, -b             Batch mode for multiple files/folders")
-        print("  --output-dir, -d <dir>  Output directory for batch mode")
-        print("  --overwrite-all, -o     Overwrite existing files without asking")
-        print("  --add-suffix, -a        Add numeric suffix to existing files")
-        print("  --workers, -w <num>     Number of parallel workers (default: 4)")
-        print("  --help, -h              Show this help message")
-        print("")
-        print("Examples:")
-        print("  python3 docx_to_org_complete.py file.docx output.org")
-        print("  python3 docx_to_org_complete.py folder/ --overwrite-all")
-        print("  python3 docx_to_org_complete.py --batch file1.docx file2.docx -d output/")
-        print("  python3 docx_to_org_complete.py --batch folder1/ folder2/ -o -w 8")
-    
-    def get_file_conflict_mode(self, output_file: str) -> str:
-        """Determine conflict mode for a specific file"""
-        if os.path.exists(output_file):
-            if self.conflict_mode == "suffix":
-                return "suffix"  # Need to add suffix
-            else:
-                return "overwrite"  # Default to overwrite
-        return "no_conflict"
-    
-    def get_user_files(self) -> List[Tuple[str, str]]:
-        """Get input from user - can be file or folder"""
-        inputs = []
-        
-        print("=== Complete Docx to Org-mode Converter (Footnotes + Lists + Batch) ===")
-        print("Enter file or folder paths (or 'done' to finish, 'quit' to exit)")
-        print("Folders will be scanned recursively for .docx files")
-        
-        while True:
-            input_path = input("\nEnter docx file or folder path: ").strip()
-            
-            if input_path.lower() == 'quit':
-                return []
-            elif input_path.lower() == 'done':
-                break
-            elif not input_path:
-                print("Please enter a valid path")
-                continue
-            
-            # Check if path exists
-            if not os.path.exists(input_path):
-                print(f"Path not found: {input_path}")
-                continue
-            
-            # Handle folder
-            if os.path.isdir(input_path):
-                docx_files = self.find_docx_files_recursive(input_path)
-                if not docx_files:
-                    print(f"No .docx files found in {input_path}")
-                    continue
-                
-                print(f"Found {len(docx_files)} .docx files in {input_path}")
-                confirm = input(f"Convert all {len(docx_files)} files? [y/n] ").strip().lower()
-                if confirm in ['y', 'yes']:
-                    for docx_file in docx_files:
-                        output_file = docx_file.replace('.docx', '.org')
-                        inputs.append((docx_file, output_file))
-                else:
-                    continue
-            
-            # Handle single file
-            elif input_path.lower().endswith('.docx'):
-                suggested_output = input_path.replace('.docx', '.org')
-                output_file = input(f"Enter output file path [{suggested_output}]: ").strip()
-                if not output_file:
-                    output_file = suggested_output
-                inputs.append((input_path, output_file))
-            
-            else:
-                print("Path must be a .docx file or folder")
-                continue
-            
-            print(f"Added: {len(inputs)} file(s) queued for conversion")
-        
-        return inputs
-    
     def run(self):
         """Main conversion loop"""
-        file_pairs = self.get_user_files()
+        file_pairs = self.get_user_input()
         
         if not file_pairs:
             print("No files selected. Exiting.")
@@ -904,98 +787,66 @@ def print_help(self):
             else:
                 skip_count += 1
         
-print(f"\nConversion complete: {success_count} succeeded, {skip_count} skipped out of {len(file_pairs)} files.")
-    
-    def run(self):
-        """Main entry point for the converter"""
-        if len(sys.argv) < 2:
-            self.print_help()
-            return
-        
-        # Parse command line arguments
-        args = sys.argv[1:]
-        batch_mode = False
-        input_paths = []
-        output_dir = None
-        max_workers = 4
-        conflict_mode = "ask"
-        
-        i = 0
-        while i < len(args):
-            arg = args[i]
-            
-            if arg.lower() in ['--batch', '-b']:
-                batch_mode = True
-            elif arg.lower() in ['--output-dir', '-d']:
-                if i + 1 < len(args):
-                    output_dir = args[i + 1]
-                    i += 1
-                else:
-                    print("Error: --output-dir requires a directory path")
-                    return
-            elif arg.lower() in ['--workers', '-w']:
-                if i + 1 < len(args):
-                    try:
-                        max_workers = int(args[i + 1])
-                        i += 1
-                    except ValueError:
-                        print("Error: --workers requires a number")
-                        return
-                else:
-                    print("Error: --workers requires a number")
-                    return
-            elif arg.lower() in ['--overwrite-all', '-o']:
-                conflict_mode = "overwrite"
-            elif arg.lower() in ['--add-suffix', '-a']:
-                conflict_mode = "suffix"
-            elif arg.lower() in ['--help', '-h']:
-                self.print_help()
-                return
-            else:
-                # Assume it's an input path
-                input_paths.append(arg)
-            
-            i += 1
-        
-        if not input_paths:
-            print("Error: No input paths specified")
-            self.print_help()
-            return
-        
-        # Set conflict mode
-        self.conflict_mode = conflict_mode
-        
-        # Handle batch mode
-        if batch_mode:
-            self.handle_batch_mode(input_paths, output_dir)
-            return
-        
-        # Handle single file/folder mode (legacy)
-        input_path = input_paths[0]
-        
-        if not os.path.exists(input_path):
-            print(f"Path not found: {input_path}")
-            return
-        
-        # Single file
-        if os.path.isfile(input_path) and input_path.lower().endswith('.docx'):
-            output_file = input_path.replace('.docx', '.org')
-            if output_dir:
-                output_file = os.path.join(output_dir, os.path.basename(output_file))
-            
-            if self.convert_docx_to_org(input_path, output_file):
-                print(f"✅ Successfully converted {input_path} to {output_file}")
-            else:
-                print(f"❌ Failed to convert {input_path}")
-        
-        # Directory
-        elif os.path.isdir(input_path):
-            self.handle_folder(input_path)
-        
-        else:
-            print(f"❌ Invalid input: {input_path} (must be .docx file or folder)")
+        print(f"\nConversion complete: {success_count} succeeded, {skip_count} skipped out of {len(file_pairs)} files.")
 
 
 if __name__ == "__main__":
     converter = DocxToOrgCompleteConverter()
-    converter.run()
+    
+    # Check if command line arguments are provided
+    if len(sys.argv) >= 2:
+        input_path = sys.argv[1]
+        output_file = sys.argv[2] if len(sys.argv) > 2 else None
+        conflict_mode = "ask"  # default mode
+        overwrite_all = False
+        
+        # Parse additional arguments
+        for arg in sys.argv[3:]:
+            if arg.lower() in ['--overwrite-all', '-o']:
+                overwrite_all = True
+                conflict_mode = "overwrite"
+            elif arg.lower() in ['--add-suffix', '-a']:
+                overwrite_all = False
+                conflict_mode = "suffix"
+            else:
+                print(f"Unknown argument: {arg}")
+                print("Usage: python3 docx_to_org_complete.py <input> [output] [--overwrite-all|-o] [--add-suffix|-a]")
+                print("  --overwrite-all, -o: Overwrite all existing files")
+                print("  --add-suffix, -a: Add numeric suffix to conflicting files")
+                sys.exit(1)
+        
+        if not os.path.exists(input_path):
+            print(f"Path not found: {input_path}")
+            sys.exit(1)
+        
+        # Handle single file
+        if os.path.isfile(input_path) and input_path.lower().endswith('.docx'):
+            if not output_file:
+                output_file = input_path.replace('.docx', '.org')
+            if converter.convert_docx_to_org(input_path, output_file, check_conflicts=False, conflict_mode=conflict_mode):
+                print(f"Successfully converted {input_path} to {output_file}")
+            else:
+                print(f"Failed to convert {input_path}")
+        
+        # Handle folder
+        elif os.path.isdir(input_path):
+            docx_files = converter.find_docx_files_recursive(input_path)
+            if not docx_files:
+                print(f"No .docx files found in {input_path}")
+                sys.exit(1)
+            
+            print(f"Found {len(docx_files)} .docx files in {input_path}")
+            
+            success_count = 0
+            for docx_file in docx_files:
+                org_file = docx_file.replace('.docx', '.org')
+                if converter.convert_docx_to_org(docx_file, org_file, check_conflicts=False, conflict_mode=conflict_mode):
+                    success_count += 1
+            
+            print(f"Batch conversion complete: {success_count}/{len(docx_files)} files converted successfully.")
+        
+        else:
+            print(f"Invalid input: {input_path} (must be .docx file or folder)")
+            sys.exit(1)
+    else:
+        converter.run()
