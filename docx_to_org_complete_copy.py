@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced Docx to Org-mode Converter
-Preserves docx headings, converts inline formatting (*bold*, /italics/), maintains robust file handling.
-Keeps lists, footnotes, and endnotes with proper references in text.
+Complete Docx to Org-mode Converter with Footnotes and List Support
 Converts Hebrew docx files to org-mode format with proper header, footnote, and list handling.
 """
 
@@ -12,6 +10,8 @@ import re
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 import glob
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from multiprocessing import cpu_count
 try:
     from docx import Document
     from docx.shared import Pt
@@ -24,13 +24,14 @@ except ImportError:
     sys.exit(1)
 
 
-class DocxToOrgEnhancedConverter:
+class DocxToOrgCompleteConverter:
     def __init__(self):
         self.footnotes = []
         self.footnote_counter = 1
         self.footnote_references = {}  # Maps original reference to footnote number
         self.list_depth_stack = []  # Track nested list levels
         self.list_item_counters = []  # Track numbering for ordered lists
+        self.global_action = None  # Store global conflict resolution action
     
     def find_docx_files_recursive(self, directory: str) -> List[str]:
         """Find all .docx files in directory recursively"""
@@ -44,28 +45,76 @@ class DocxToOrgEnhancedConverter:
             print(f"Error scanning directory {directory}: {e}")
         return docx_files
     
-    def ask_user_for_conflict_resolution(self, output_file: str) -> bool:
-        """Ask user how to resolve file conflict"""
+    def ask_user_for_conflict_resolution(self, output_file: str):
+        """Ask user how to resolve file conflict, returns (should_process, action, global_action)"""
+        choice_map = {
+            '1': (True, 'overwrite', None),
+            '2': (False, 'skip', None),
+            '3': (True, 'append_single', None),
+            '4': (True, 'overwrite', 'overwrite_all'),
+            '5': (False, 'skip', 'skip_all'),
+            '6': (True, 'append', 'append_all')
+        }
+        
         while True:
-            choice = input(f"File '{output_file}' already exists. Overwrite? [y/n/skip] ").strip().lower()
-            if choice in ['y', 'yes']:
-                return True
-            elif choice in ['n', 'no', 'skip']:
-                return False
+            print(f"File '{output_file}' already exists. Choose an option:")
+            print("  1) Overwrite this file")
+            print("  2) Skip this file") 
+            print("  3) Add (1) to this filename")
+            print("  4) Overwrite all files")
+            print("  5) Skip all files")
+            print("  6) Add (1) to all conflicted files")
+            
+            choice = input("Enter choice (1-6): ").strip()
+            
+            if choice in choice_map:
+                return choice_map[choice]
             else:
-                print("Please enter 'y' for yes, 'n' for no, or 'skip'")
+                print("Please enter a number between 1 and 6")
     
-    def resolve_conflict(self, output_file: str, conflict_mode: str = "ask") -> bool:
-        """Resolve file conflicts based on mode"""
+    def resolve_conflict(self, output_file: str, conflict_mode: str = "ask", global_action: Optional[str] = None):
+        """Resolve file conflicts based on mode, returns (should_process, final_filename, global_action)"""
         if conflict_mode == "overwrite":
-            return True
+            return True, output_file, global_action
         elif conflict_mode == "suffix":
-            return False
+            return True, self.add_numeric_suffix(output_file), global_action
+        elif conflict_mode == "append":
+            return True, output_file.replace('.org', '(1).org') if output_file.endswith('.org') else output_file + '(1)', global_action
         elif conflict_mode == "ask":
-            return self.ask_user_for_conflict_resolution(output_file)
+            if global_action:
+                # Use the global action if already determined - no more asking
+                if global_action == 'overwrite_all':
+                    return True, output_file, global_action
+                elif global_action == 'skip_all':
+                    return False, output_file, global_action
+                elif global_action == 'append_all':
+                    final_output = output_file.replace('.org', '(1).org') if output_file.endswith('.org') else output_file + '(1)'
+                    return True, final_output, global_action
+            else:
+                # First conflict - ask user for resolution
+                should_process, action, new_global = self.ask_user_for_conflict_resolution(output_file)
+                
+                if action == 'overwrite':
+                    return True, output_file, new_global  # Individual action, no global change
+                elif action == 'skip':
+                    return False, output_file, new_global   # Individual action, no global change
+                elif action == 'append_single':
+                    final_output = output_file.replace('.org', '(1).org') if output_file.endswith('.org') else output_file + '(1)'
+                    return True, final_output, new_global   # Individual action, no global change
+                elif action == 'overwrite':
+                    return True, output_file, new_global  # Should not happen, but handle
+                elif action == 'append':
+                    final_output = output_file.replace('.org', '(1).org') if output_file.endswith('.org') else output_file + '(1)'
+                    return True, final_output, new_global  # Global action set
+                else:
+                    return should_process, output_file, new_global
         else:
             print(f"Unknown conflict mode: {conflict_mode}")
-            return self.ask_user_for_conflict_resolution(output_file)
+            should_process, action, new_global = self.ask_user_for_conflict_resolution(output_file)
+            if action == 'append_single' or action == 'append':
+                final_output = output_file.replace('.org', '(1).org') if output_file.endswith('.org') else output_file + '(1)'
+                return should_process, final_output, new_global
+            return should_process, output_file, new_global
     
     def add_numeric_suffix(self, output_file: str) -> str:
         """Add numeric suffix to filename if file exists"""
@@ -87,7 +136,7 @@ class DocxToOrgEnhancedConverter:
         """Get input from user - can be file or folder"""
         inputs = []
         
-        print("=== Enhanced Docx to Org-mode Converter (Preserve Headings + Inline Formatting) ===")
+        print("=== Complete Docx to Org-mode Converter (Footnotes + Lists + Batch) ===")
         print("Enter file or folder paths (or 'done' to finish, 'quit' to exit)")
         print("Folders will be scanned recursively for .docx files")
         
@@ -709,11 +758,22 @@ class DocxToOrgEnhancedConverter:
     def convert_docx_to_org(self, input_file: str, output_file: str, check_conflicts: bool = True, conflict_mode: str = "ask") -> bool:
         """Convert a single docx file to org-mode with footnotes and lists"""
         try:
-            # Check for conflicts if requested
+            # Handle conflicts based on mode
             if check_conflicts and os.path.exists(output_file):
-                if not self.ask_user_for_conflict_resolution(output_file):
+                result = self.resolve_conflict(output_file, conflict_mode, self.global_action)
+                if result is None:
+                    print(f"⏭ Skipped {input_file} (conflict resolution failed)")
+                    return False
+                should_process, final_output, new_global_action = result
+                
+                # Store the global action for future conflicts
+                if new_global_action:
+                    self.global_action = new_global_action
+                
+                if not should_process:
                     print(f"⏭ Skipped {input_file} (conflict resolved by user)")
                     return False
+                output_file = final_output
             
             print(f"Converting {input_file}...")
             
@@ -771,8 +831,25 @@ class DocxToOrgEnhancedConverter:
             print(f"✗ Error converting {input_file}: {str(e)}")
             return False
     
-    def run(self):
-        """Main conversion loop"""
+    @staticmethod
+    def convert_single_file_static(input_file: str, output_file: str, check_conflicts: bool = True, conflict_mode: str = "ask") -> Tuple[str, bool]:
+        """Convert a single file for parallel processing, returns (filename, success)"""
+        # Create a new converter instance for thread safety
+        converter = DocxToOrgCompleteConverter()
+        success = converter.convert_docx_to_org(input_file, output_file, check_conflicts, conflict_mode)
+        return (output_file, success)
+    
+    def convert_single_file(self, input_file: str, output_file: str, check_conflicts: bool = True, conflict_mode: str = "ask", global_action: Optional[str] = None) -> Tuple[str, bool]:
+        """Convert a single file for parallel processing, returns (filename, success)"""
+        # Set the global action for this conversion
+        if global_action:
+            self.global_action = global_action
+        success = self.convert_docx_to_org(input_file, output_file, check_conflicts, conflict_mode)
+        return (output_file, success)
+    
+    def run(self, parallel: bool = True, max_workers: Optional[int] = None):
+        """Main conversion loop with optional parallel processing"""
+        self.global_action = None  # Reset global action for this run
         file_pairs = self.get_user_input()
         
         if not file_pairs:
@@ -780,20 +857,73 @@ class DocxToOrgEnhancedConverter:
             return
         
         print(f"\nProcessing {len(file_pairs)} file(s)...")
-        
-        success_count = 0
-        skip_count = 0
-        for input_file, output_file in file_pairs:
-            if self.convert_docx_to_org(input_file, output_file):
-                success_count += 1
-            else:
-                skip_count += 1
+        if parallel and len(file_pairs) > 1:
+            max_workers = max_workers or min(cpu_count(), len(file_pairs))
+            print(f"Using parallel processing with {max_workers} workers")
+            
+            success_count = 0
+            skip_count = 0
+            
+            # For parallel processing, pre-resolve conflicts to avoid asking during conversion
+            resolved_file_pairs = []
+            for input_file, output_file in file_pairs:
+                if os.path.exists(output_file):
+                    # Resolve conflict now before parallel processing
+                    result = self.resolve_conflict(output_file, "ask", self.global_action)
+                    if result:
+                        should_process, final_output, new_global_action = result
+                        
+                        # Store the global action for future conflicts
+                        if new_global_action:
+                            self.global_action = new_global_action
+                        
+                        if should_process:
+                            resolved_file_pairs.append((input_file, final_output))
+                        else:
+                            print(f"⏭ Skipped {input_file} (conflict resolved)")
+                            skip_count += 1
+                    else:
+                        print(f"⏭ Skipped {input_file} (conflict resolution failed)")
+                        skip_count += 1
+                else:
+                    resolved_file_pairs.append((input_file, output_file))
+            
+            success_count = 0
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all conversion tasks with pre-resolved conflicts
+                future_to_file = {
+                    executor.submit(DocxToOrgCompleteConverter.convert_single_file_static, input_file, output_file, False, "overwrite"): (input_file, output_file)
+                    for input_file, output_file in resolved_file_pairs
+                }
+                
+                # Process completed tasks
+                for future in as_completed(future_to_file):
+                    input_file, output_file = future_to_file[future]
+                    try:
+                        result_file, success = future.result()
+                        if success:
+                            success_count += 1
+                        else:
+                            skip_count += 1
+                    except Exception as e:
+                        print(f"✗ Error processing {input_file}: {str(e)}")
+                        skip_count += 1
+        else:
+            # Sequential processing
+            success_count = 0
+            skip_count = 0
+            for input_file, output_file in file_pairs:
+                if self.convert_docx_to_org(input_file, output_file):
+                    success_count += 1
+                else:
+                    skip_count += 1
         
         print(f"\nConversion complete: {success_count} succeeded, {skip_count} skipped out of {len(file_pairs)} files.")
 
 
 if __name__ == "__main__":
-    converter = DocxToOrgEnhancedConverter()
+    converter = DocxToOrgCompleteConverter()
     
     # Check if command line arguments are provided
     if len(sys.argv) >= 2:
@@ -803,6 +933,8 @@ if __name__ == "__main__":
         overwrite_all = False
         
         # Parse additional arguments
+        parallel = True
+        max_workers = None
         for arg in sys.argv[3:]:
             if arg.lower() in ['--overwrite-all', '-o']:
                 overwrite_all = True
@@ -810,11 +942,25 @@ if __name__ == "__main__":
             elif arg.lower() in ['--add-suffix', '-a']:
                 overwrite_all = False
                 conflict_mode = "suffix"
+            elif arg.lower() in ['--append', '-p']:
+                overwrite_all = False
+                conflict_mode = "append"
+            elif arg.lower() == '--no-parallel':
+                parallel = False
+            elif arg.lower().startswith('--workers='):
+                try:
+                    max_workers = int(arg.split('=', 1)[1])
+                except ValueError:
+                    print(f"Invalid worker count: {arg}")
+                    sys.exit(1)
             else:
                 print(f"Unknown argument: {arg}")
-                print("Usage: python3 docx_to_org_complete.py <input> [output] [--overwrite-all|-o] [--add-suffix|-a]")
+                print("Usage: python3 docx_to_org_complete_copy.py <input> [output] [--overwrite-all|-o] [--add-suffix|-a] [--append|-p] [--no-parallel] [--workers=N]")
                 print("  --overwrite-all, -o: Overwrite all existing files")
                 print("  --add-suffix, -a: Add numeric suffix to conflicting files")
+                print("  --append, -p: Append (1) to conflicting files")
+                print("  --no-parallel: Disable parallel processing")
+                print("  --workers=N: Set number of parallel workers")
                 sys.exit(1)
         
         if not os.path.exists(input_path):
@@ -839,11 +985,33 @@ if __name__ == "__main__":
             
             print(f"Found {len(docx_files)} .docx files in {input_path}")
             
-            success_count = 0
-            for docx_file in docx_files:
-                org_file = docx_file.replace('.docx', '.org')
-                if converter.convert_docx_to_org(docx_file, org_file, check_conflicts=False, conflict_mode=conflict_mode):
-                    success_count += 1
+            if parallel and len(docx_files) > 1:
+                max_workers = max_workers or min(cpu_count(), len(docx_files))
+                print(f"Using parallel processing with {max_workers} workers")
+                
+                success_count = 0
+                file_pairs = [(docx_file, docx_file.replace('.docx', '.org')) for docx_file in docx_files]
+                
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    future_to_file = {
+                        executor.submit(converter.convert_single_file, input_file, output_file, False, conflict_mode): (input_file, output_file)
+                        for input_file, output_file in file_pairs
+                    }
+                    
+                    for future in as_completed(future_to_file):
+                        input_file, output_file = future_to_file[future]
+                        try:
+                            result_file, success = future.result()
+                            if success:
+                                success_count += 1
+                        except Exception as e:
+                            print(f"✗ Error processing {input_file}: {str(e)}")
+            else:
+                success_count = 0
+                for docx_file in docx_files:
+                    org_file = docx_file.replace('.docx', '.org')
+                    if converter.convert_docx_to_org(docx_file, org_file, check_conflicts=False, conflict_mode=conflict_mode):
+                        success_count += 1
             
             print(f"Batch conversion complete: {success_count}/{len(docx_files)} files converted successfully.")
         

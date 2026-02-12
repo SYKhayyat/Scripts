@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced Docx to Org-mode Converter
-Preserves docx headings, converts inline formatting (*bold*, /italics/), maintains robust file handling.
-Keeps lists, footnotes, and endnotes with proper references in text.
+Complete Docx to Org-mode Converter with Footnotes and List Support
 Converts Hebrew docx files to org-mode format with proper header, footnote, and list handling.
 """
 
@@ -24,7 +22,7 @@ except ImportError:
     sys.exit(1)
 
 
-class DocxToOrgEnhancedConverter:
+class DocxToOrgCompleteConverter:
     def __init__(self):
         self.footnotes = []
         self.footnote_counter = 1
@@ -87,7 +85,7 @@ class DocxToOrgEnhancedConverter:
         """Get input from user - can be file or folder"""
         inputs = []
         
-        print("=== Enhanced Docx to Org-mode Converter (Preserve Headings + Inline Formatting) ===")
+        print("=== Complete Docx to Org-mode Converter (Footnotes + Lists + Batch) ===")
         print("Enter file or folder paths (or 'done' to finish, 'quit' to exit)")
         print("Folders will be scanned recursively for .docx files")
         
@@ -793,7 +791,7 @@ class DocxToOrgEnhancedConverter:
 
 
 if __name__ == "__main__":
-    converter = DocxToOrgEnhancedConverter()
+    converter = DocxToOrgCompleteConverter()
     
     # Check if command line arguments are provided
     if len(sys.argv) >= 2:
