@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+import subprocess
+from pathlib import Path
+import tempfile
+import sys
+
+# Fixed Lua filter: Correctly splits a single paragraph into multiple blocks
+# (Text + Heading + Text) when bold text is encountered.
+LUA_FILTER = """
+function Para(el)
+  local res = {}
+  local current_inlines = {}
+
+  for i, inline in ipairs(el.content) do
+    if inline.t == "Strong" then
+      -- If there's text before the bold, flush it as a paragraph
+      if #current_inlines > 0 then
+        table.insert(res, pandoc.Para(current_inlines))
+        current_inlines = {}
+      end
+      -- Convert bold to Header 2
+      table.insert(res, pandoc.Header(2, inline.content))
+    else
+      -- Build the paragraph fragment
+      table.insert(current_inlines, inline)
+    end
+  end
+
+  -- Flush remaining text after the last bold item
+  if #current_inlines > 0 then
+    table.insert(res, pandoc.Para(current_inlines))
+  end
+
+  return res
+end
+"""
+
+def convert_file(input_path, output_path, state):
+    if output_path.exists():
+        mode = state['mode']
+        if mode == 'oa':
+            pass
+        elif mode == 'sa':
+            return
+        elif mode == 'aa':
+            output_path = output_path.with_name(f"{output_path.stem}(1).org")
+        else:
+            choice = input(f"Conflict: {output_path.name} exists. [o]verwrite, [s]kip, [a]ppend, [oa] all, [sa] all, [aa] all? ").lower()
+            if choice == 'oa':
+                state['mode'] = 'oa'
+            elif choice == 'sa':
+                state['mode'] = 'sa'; return
+            elif choice == 'aa':
+                state['mode'] = 'aa'; output_path = output_path.with_name(f"{output_path.stem}(1).org")
+            elif choice == 'a':
+                output_path = output_path.with_name(f"{output_path.stem}(1).org")
+            elif choice != 'o':
+                return
+
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.lua') as f:
+        f.write(LUA_FILTER)
+        lua_path = f.name
+
+    try:
+        cmd = ["pandoc", "-s", str(input_path), "--lua-filter", lua_path, "-t", "org", "-o", str(output_path)]
+        subprocess.run(cmd, check=True)
+        print(f"Done: {input_path.name} -> {output_path.name}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
+    finally:
+        Path(lua_path).unlink()
+
+def batch_process(path_str):
+    path = Path(path_str).expanduser()
+    files = [path] if path.is_file() else list(path.rglob("*.docx"))
+    
+    if not files:
+        print("No .docx files found.")
+        return
+
+    state = {'mode': 'ask'}
+    for docx_file in files:
+        out_path = docx_file.with_suffix(".org")
+        convert_file(docx_file, out_path, state)
+
+if __name__ == "__main__":
+    path_input = input("Enter file or folder path: ").strip().strip('"')
+    batch_process(path_input)
