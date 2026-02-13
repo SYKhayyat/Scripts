@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# File picker with fzf - select files and open with chosen program
+# Usage: open-with-fzf [directory]
+# Default directory: /home/shaul
+
+# Set starting directory (default: /home/shaul)
+start_dir="${1:-/home/shaul}"
+
+# Validate directory exists
+if [[ ! -d "$start_dir" ]]; then
+    echo "Error: Directory '$start_dir' does not exist" >&2
+    exit 1
+fi
+
+# Change to starting directory
+cd "$start_dir"
+
+# Use fzf to select one or more files (multi-select with Tab)
+selected_files=$(fzf --multi --prompt="Select files (Tab to multi-select): " 2>/dev/null)
+
+# Exit if no files selected
+if [[ -z "$selected_files" ]]; then
+    echo "No files selected. Exiting." >&2
+    exit 1
+fi
+
+# Prompt for program name
+read -rp "Enter program to open files: " program
+
+# Validate program exists
+if ! command -v "$program" &> /dev/null; then
+    echo "Error: '$program' not found in PATH" >&2
+    exit 1
+fi
+
+# Count how many files were selected
+file_count=$(echo "$selected_files" | wc -l)
+
+# Open files with the specified program
+echo "Opening $file_count file(s) with $program..."
+echo "$selected_files" | xargs -I {} "$program" "{}" &
