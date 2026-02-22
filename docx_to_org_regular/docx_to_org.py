@@ -5,48 +5,8 @@ import tempfile
 
 # Updated Lua filter to convert centered paragraphs to H1
 LUA_FILTER = """
--- Convert centered paragraphs to H1
-function Para(elem)
-  if elem.attributes and elem.attributes['textAlign'] == 'center' then
-    return pandoc.Header(1, elem.content)
-  end
-  return nil
-end
-
--- Walk through all blocks to handle bolded text
+-- No header conversion - just pass through all content
 function Pandoc(doc)
-  local blocks = {}
-  for _, block in ipairs(doc.blocks) do
-    if block.t == "Para" or block.t == "Plain" then
-      local new_inlines = {}
-      local has_strong = false
-      
-      -- Check for Strong inlines (bold)
-      for _, inline in ipairs(block.content) do
-        if inline.t == "Strong" then
-          has_strong = true
-          -- If we have other text before this bold part,
-          -- split it into a previous paragraph
-          if #new_inlines > 0 then
-            table.insert(blocks, pandoc.Para(new_inlines))
-            new_inlines = {}
-          end
-          -- Add the bold text as a Header level 1
-          table.insert(blocks, pandoc.Header(1, inline.content))
-        else
-          table.insert(new_inlines, inline)
-        end
-      end
-      
-      -- If there is leftover text, add it as a Para
-      if #new_inlines > 0 then
-        table.insert(blocks, pandoc.Para(new_inlines))
-      end
-    else
-      table.insert(blocks, block)
-    end
-  end
-  doc.blocks = blocks
   return doc
 end
 """

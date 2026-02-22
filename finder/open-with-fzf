@@ -28,7 +28,16 @@ if [[ -z "$selected_files" ]]; then
 fi
 
 # Prompt for program name
-read -rp "Enter program to open files: " program
+read -rp "Enter program to open files (or 'folder' to cd to directory): " program
+
+# Special case: if program is "folder", cd to the directory of the first selected file
+if [[ "$program" == "folder" ]]; then
+    first_file_dir=$(dirname "$(echo "$selected_files" | head -n 1)")
+    echo "Changing directory to $first_file_dir"
+    cd "$first_file_dir"
+    exec bash # Replace the current shell with a new bash session in the new directory
+    exit 0
+fi
 
 # Validate program exists
 if ! command -v "$program" &> /dev/null; then

@@ -1,14 +1,34 @@
 #!/usr/bin/env python3
 """
 Org mode file cleaner script.
-Removes empty paragraphs and trims leading whitespace.
-Combines consecutive level 2 headings.
+Removes empty paragraphs and trims leading dashes/hyphens/spaces
+while preserving Org headings and list items.
 """
 
 import os
 import re
 import sys
 from pathlib import Path
+
+
+def is_rtl_line(line):
+    """Check if line contains RTL text (Hebrew, Arabic, etc.)."""
+    rtl_ranges = [
+        (0x0590, 0x05FF),  # Hebrew
+        (0x0600, 0x06FF),  # Arabic
+        (0x0700, 0x074F),  # Syriac
+        (0x0750, 0x077F),  # Arabic Supplement
+        (0x08A0, 0x08FF),  # Arabic Extended-A
+        (0xFB50, 0xFDFF),  # Arabic Presentation Forms-A
+        (0xFE70, 0xFEFF),  # Arabic Presentation Forms-B
+    ]
+    for char in line:
+        if char.isalpha():
+            code = ord(char)
+            for start, end in rtl_ranges:
+                if start <= code <= end:
+                    return True
+    return False
 
 
 def is_org_heading(line):
@@ -29,14 +49,19 @@ def is_org_list_item(line):
             re.match(r'^[a-zA-Z]\.\s', stripped))
 
 
-def trim_line(line):
-    """Trim leading whitespace while preserving Org structure."""
+def trim_line(line, prev_was_heading=False):
+    """Trim leading dashes, hyphens, and spaces while preserving Org structure."""
     if is_org_heading(line):
         return line
     elif is_org_list_item(line):
+        if is_rtl_line(line):
+            return re.sub(r'^[-\s\u2013\u2014\u2015]+', '', line)
         return line
     else:
-        return re.sub(r'^\s+', '', line)
+        if is_rtl_line(line) or prev_was_heading:
+            return re.sub(r'^[-\s\u2013\u2014\u2015]+', '', line)
+        else:
+            return re.sub(r'^[-\s]+', '', line)
 
 
 def is_empty_paragraph(line):
@@ -64,7 +89,7 @@ def process_org_file(file_path):
         if is_empty_paragraph(line):
             continue
         
-        trimmed_line = trim_line(line.rstrip('\n\r'))
+        trimmed_line = trim_line(line.rstrip('\n\r'), prev_was_heading)
         if trimmed_line:
             if cleaned_lines and prev_was_heading and is_org_level2_heading(trimmed_line):
                 last_line = cleaned_lines[-1]

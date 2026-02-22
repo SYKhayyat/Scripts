@@ -734,28 +734,10 @@ class DocxToOrgCompleteConverter:
                 # Use the enhanced method that preserves footnotes
                 bold_portions, regular_portions = self.extract_bold_portions_with_footnotes(paragraph)
                 
-                # Check for dashes immediately after bold text (with optional space) and include them in the heading
-                # Handles: dash at start, dash after whitespace
-                dash_pattern = re.compile(r'^[\s]*[\-–—−‑‒–—―][\s]*')
-                
-                # Track which regular_portions indices have been processed for dashes
-                processed_dash_indices = set()
-                
                 # Add bold portions as level 2 headers
-                for i, bold_text in enumerate(bold_portions):
+                for bold_text in bold_portions:
                     if bold_text.strip():
-                        combined_text = bold_text.strip()
-                        # Look for dash only in regular_portions[i]
-                        if i < len(regular_portions):
-                            next_regular = regular_portions[i]
-                            dash_match = dash_pattern.match(next_regular)
-                            if dash_match:
-                                dash = dash_match.group(0).strip()
-                                combined_text = f"{combined_text} {dash}"
-                                # Remove the dash from the regular portion
-                                remaining = next_regular[dash_match.end():]
-                                regular_portions[i] = remaining.lstrip() if remaining else ''
-                        lines.append(f"** {combined_text}")
+                        lines.append(f"** {bold_text.strip()}")
                 
                 # Add regular portions as normal paragraphs
                 for regular_text in regular_portions:
