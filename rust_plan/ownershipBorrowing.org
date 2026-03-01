@@ -1,0 +1,452 @@
+#+TITLE: Rust Ownership & Borrowing Decision Tree
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:2 num:t
+
+* The Three Ownership Rules
+
+1. Each value in Rust has exactly ONE owner (a variable)
+2. There can only be ONE owner at a time
+3. When the owner goes out of scope, the value is DROPPED (freed)
+
+* The Two Borrowing Rules
+
+1. You can have EITHER:
+   - One mutable reference (&mut T), OR
+   - Any number of immutable references (&T)
+   (but NOT both at the same time)
+
+2. References must ALWAYS be valid (no dangling references)
+
+* Decision Tree: Function Parameters
+
+#+BEGIN_EXAMPLE
+┌─────────────────────────────────────────────────────────────────┐
+│         WHAT SHOULD MY FUNCTION PARAMETER BE?                   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+            ┌─────────────────────────────────┐
+            │ Does the function need to       │
+            │ STORE the data permanently?     │
+            │ (in struct field, return it,    │
+            │  put in collection)             │
+            └─────────────────────────────────┘
+                    │                │
+                   YES              NO
+                    │                │
+                    ▼                ▼
+    ┌───────────────────┐  ┌───────────────────────────┐
+    │ Take OWNERSHIP    │  │ Does function need to     │
+    │                   │  │ MODIFY the data?          │
+    │ fn foo(s: String) │  └───────────────────────────┘
+    │ fn foo(v: Vec<T>) │          │            │
+    └───────────────────┘         YES          NO
+                                   │            │
+                                   ▼            ▼
+                    ┌─────────────────┐  ┌─────────────────┐
+                    │ MUTABLE BORROW  │  │ IMMUTABLE BORROW│
+                    │                 │  │                 │
+                    │ fn foo(s: &mut  │  │ fn foo(s: &str) │
+                    │        String)  │  │ fn foo(v: &[T]) │
+                    └─────────────────┘  └─────────────────┘
+#+END_EXAMPLE
+
+* Decision Tree: Return Types
+
+#+BEGIN_EXAMPLE
+┌─────────────────────────────────────────────────────────────────┐
+│              WHAT SHOULD MY FUNCTION RETURN?                    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+            ┌─────────────────────────────────┐
+            │ Is the data CREATED inside     │
+            │ the function?                   │
+            └─────────────────────────────────┘
+                    │                │
+                   YES              NO
+                    │                │
+                    ▼                ▼
+    ┌───────────────────┐  ┌───────────────────────────┐
+    │ Return OWNED      │  │ Is the data borrowed      │
+    │                   │  │ from a parameter?         │
+    │ fn foo() -> String│  └───────────────────────────┘
+    │ fn foo() -> Vec<T>│          │            │
+    └───────────────────┘         YES          NO
+                                   │            │
+                                   ▼            ▼
+                    ┌─────────────────┐  ┌─────────────────┐
+                    │ Return REFERENCE│  │ ⚠️ CANNOT return │
+                    │ (same lifetime) │  │ reference to    │
+                    │                 │  │ local data!     │
+                    │ fn foo(s: &str) │  │                 │
+                    │   -> &str       │  │ Clone it or     │
+                    └─────────────────┘  │ restructure     │
+                                         └─────────────────┘
+#+END_EXAMPLE
+
+* Decision Tree: Fixing "Use of Moved Value"
+
+#+BEGIN_EXAMPLE
+┌─────────────────────────────────────────────────────────────────┐
+│    ERROR: "use of moved value" or "value borrowed after move"  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+            ┌─────────────────────────────────┐
+            │ Do you REALLY need two          │
+            │ independent copies of the data? │
+            └─────────────────────────────────┘
+                    │                │
+                   YES              NO
+                    │                │
+                    ▼                ▼
+    ┌───────────────────┐  ┌───────────────────────────┐
+    │ Use .clone()      │  │ Can you use the value     │
+    │                   │  │ BEFORE the move happens?  │
+    │ let copy = s.clone();│ └───────────────────────────┘
+    │ consume(s);       │          │            │
+    │ use(copy);        │         YES          NO
+    └───────────────────┘          │            │
+                                   ▼            ▼
+                    ┌─────────────────┐  ┌─────────────────┐
+                    │ Reorder code    │  │ Can you BORROW  │
+                    │                 │  │ instead of move?│
+                    │ use(s);         │  └─────────────────┘
+                    │ consume(s); // last│       │        │
+                    └─────────────────┘        YES      NO
+                                                │        │
+                                                ▼        ▼
+                                 ┌─────────────────┐  ┌─────────────┐
+                                 │ Change function │  │ Restructure │
+                                 │ to take &T      │  │ your code   │
+                                 │                 │  │             │
+                                 │ fn foo(s: &String)│ │ Maybe the  │
+                                 │ // instead of   │  │ function   │
+                                 │ fn foo(s: String)│ │ should     │
+                                 └─────────────────┘  │ return the │
+                                                      │ value back │
+                                                      └─────────────┘
+#+END_EXAMPLE
+
+* Decision Tree: Fixing Borrow Conflicts
+
+#+BEGIN_EXAMPLE
+┌─────────────────────────────────────────────────────────────────┐
+│  ERROR: "cannot borrow as mutable because also borrowed as     │
+│          immutable" OR "cannot borrow as mutable more than once"│
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+            ┌─────────────────────────────────┐
+            │ Can you END the first borrow   │
+            │ BEFORE starting the second?     │
+            └─────────────────────────────────┘
+                    │                │
+                   YES              NO
+                    │                │
+                    ▼                ▼
+    ┌───────────────────┐  ┌───────────────────────────┐
+    │ Separate borrows  │  │ Do you need both accesses │
+    │ in time           │  │ at EXACTLY the same time? │
+    │                   │  └───────────────────────────┘
+    │ let r1 = &s;      │          │            │
+    │ println!("{}", r1);│        YES          NO
+    │ // r1 no longer used        │            │
+    │ let r2 = &mut s;  │         ▼            ▼
+    │ r2.push('!');     │  ┌─────────────┐  ┌─────────────┐
+    └───────────────────┘  │ Consider:   │  │ Use scope   │
+                           │ - Clone     │  │ to limit    │
+                           │ - RefCell   │  │ borrow      │
+                           │ - Restructure│ │             │
+                           └─────────────┘  │ {           │
+                                            │   let r = &s;│
+                                            │   use(r);   │
+                                            │ }           │
+                                            │ let m = &mut s;│
+                                            └─────────────┘
+#+END_EXAMPLE
+
+* Decision Tree: Choosing Types
+
+#+BEGIN_EXAMPLE
+┌─────────────────────────────────────────────────────────────────┐
+│                    WHICH TYPE SHOULD I USE?                     │
+└─────────────────────────────────────────────────────────────────┘
+
+FOR STRINGS:
+                              │
+            ┌─────────────────┴─────────────────┐
+            │                                   │
+    ┌───────▼───────┐                   ┌───────▼───────┐
+    │ Need to own   │                   │ Just reading/ │
+    │ or modify?    │                   │ borrowing?    │
+    └───────────────┘                   └───────────────┘
+            │                                   │
+            ▼                                   ▼
+    ┌───────────────┐                   ┌───────────────┐
+    │ String        │                   │ &str          │
+    │               │                   │               │
+    │ - Owned       │                   │ - Borrowed    │
+    │ - Growable    │                   │ - Cheap       │
+    │ - Heap alloc  │                   │ - Flexible    │
+    └───────────────┘                   └───────────────┘
+
+FOR COLLECTIONS:
+                              │
+    ┌─────────────────────────┼─────────────────────────┐
+    │                         │                         │
+    ▼                         ▼                         ▼
+┌───────────┐          ┌───────────┐          ┌───────────┐
+│ Ordered   │          │ Key-Value │          │ Unique    │
+│ sequence? │          │ lookup?   │          │ items?    │
+└───────────┘          └───────────┘          └───────────┘
+    │                         │                         │
+    ▼                         ▼                         ▼
+┌───────────┐          ┌───────────┐          ┌───────────┐
+│ Vec<T>    │          │ HashMap   │          │ HashSet   │
+│           │          │ <K, V>    │          │ <T>       │
+└───────────┘          └───────────┘          └───────────┘
+#+END_EXAMPLE
+
+* Quick Reference Table: Parameter Types
+
+| Situation | Use This | Example |
+|-----------|----------|---------|
+| Read data, don't modify | &T | fn print(s: &str) |
+| Modify data in place | &mut T | fn append(s: &mut String) |
+| Take ownership permanently | T | fn consume(s: String) |
+| Accept String OR &str | &str | fn process(s: &str) |
+| Accept Vec OR slice | &[T] | fn sum(nums: &[i32]) |
+| Builder pattern | self -> Self | fn with_name(self, n: &str) -> Self |
+| Method reading self | &self | fn len(&self) -> usize |
+| Method modifying self | &mut self | fn clear(&mut self) |
+| Method consuming self | self | fn into_inner(self) -> T |
+
+* Quick Reference Table: Return Types
+
+| Situation | Use This | Example |
+|-----------|----------|---------|
+| Creating new data | T (owned) | fn new() -> String |
+| View into input | &T (borrowed) | fn first(v: &[T]) -> &T |
+| May or may not exist | Option<T> | fn find() -> Option<&T> |
+| Can fail | Result<T, E> | fn parse() -> Result<T, Error> |
+| Iterator over items | impl Iterator<Item=T> | fn iter() -> impl Iterator |
+
+* Common Patterns
+
+** Pattern: Read-Only Processing
+#+BEGIN_SRC rust
+// GOOD: Borrows data, doesn't need ownership
+fn count_words(text: &str) -> usize {
+    text.split_whitespace().count()
+}
+
+// Usage: Original still valid after call
+let s = String::from("hello world");
+let count = count_words(&s);
+println!("{} has {} words", s, count);  // s still valid!
+#+END_SRC
+
+** Pattern: Modifying In Place
+#+BEGIN_SRC rust
+// GOOD: Takes mutable reference, modifies original
+fn make_uppercase(text: &mut String) {
+    *text = text.to_uppercase();
+}
+
+// Usage: Original is modified
+let mut s = String::from("hello");
+make_uppercase(&mut s);
+println!("{}", s);  // "HELLO"
+#+END_SRC
+
+** Pattern: Transforming Data
+#+BEGIN_SRC rust
+// GOOD: Takes ownership, returns new owned value
+fn reverse(text: String) -> String {
+    text.chars().rev().collect()
+}
+
+// Usage: Original moved, new value returned
+let s = String::from("hello");
+let reversed = reverse(s);
+// println!("{}", s);  // ERROR: s moved
+println!("{}", reversed);  // "olleh"
+#+END_SRC
+
+** Pattern: Builder
+#+BEGIN_SRC rust
+// GOOD: Consumes self, returns Self for chaining
+impl Config {
+    fn with_verbose(mut self, v: bool) -> Self {
+        self.verbose = v;
+        self
+    }
+    
+    fn with_timeout(mut self, t: u64) -> Self {
+        self.timeout = t;
+        self
+    }
+}
+
+// Usage: Chain calls
+let config = Config::new()
+    .with_verbose(true)
+    .with_timeout(30);
+#+END_SRC
+
+** Pattern: Flexible String Parameters
+#+BEGIN_SRC rust
+// GOOD: Accepts both String and &str
+fn greet(name: &str) {
+    println!("Hello, {}!", name);
+}
+
+// Usage: Works with both types
+greet("World");                    // &str literal
+greet(&String::from("Rust"));      // &String coerces to &str
+#+END_SRC
+
+** Pattern: Filtering with References
+#+BEGIN_SRC rust
+// GOOD: Borrows collection, returns references
+fn find_long_words<'a>(words: &'a [String], min_len: usize) -> Vec<&'a str> {
+    words
+        .iter()
+        .filter(|w| w.len() >= min_len)
+        .map(|w| w.as_str())
+        .collect()
+}
+
+// Usage: Original collection still usable
+let words = vec![String::from("hello"), String::from("hi")];
+let long_ones = find_long_words(&words, 3);
+println!("{:?}", long_ones);  // ["hello"]
+println!("{:?}", words);       // Still valid!
+#+END_SRC
+
+* Anti-Patterns to Avoid
+
+** Anti-Pattern: Taking &String instead of &str
+#+BEGIN_SRC rust
+// BAD: Unnecessarily restrictive
+fn process(s: &String) {  // Only accepts &String
+    println!("{}", s);
+}
+
+// GOOD: Flexible
+fn process(s: &str) {  // Accepts both &String and &str
+    println!("{}", s);
+}
+#+END_SRC
+
+** Anti-Pattern: Unnecessary Clone
+#+BEGIN_SRC rust
+// BAD: Cloning when not needed
+fn print_length(s: &str) {
+    let owned = s.to_string();  // Unnecessary allocation!
+    println!("{}", owned.len());
+}
+
+// GOOD: Work with the reference
+fn print_length(s: &str) {
+    println!("{}", s.len());  // No allocation
+}
+#+END_SRC
+
+** Anti-Pattern: Taking Ownership When Borrowing Suffices
+#+BEGIN_SRC rust
+// BAD: Consumes the String unnecessarily
+fn is_empty(s: String) -> bool {
+    s.is_empty()
+}
+
+// GOOD: Borrows, caller keeps ownership
+fn is_empty(s: &str) -> bool {
+    s.is_empty()
+}
+#+END_SRC
+
+* Memory Layout Visualization
+
+#+BEGIN_EXAMPLE
+Stack                         Heap
+┌──────────────────┐         ┌──────────────────────────┐
+│ String s1        │         │                          │
+│ ┌──────────────┐ │         │  h  e  l  l  o           │
+│ │ ptr ─────────┼─┼────────▶│ [0][1][2][3][4]          │
+│ │ len: 5       │ │         │                          │
+│ │ capacity: 5  │ │         └──────────────────────────┘
+│ └──────────────┘ │
+│                  │
+│ &str s2 (&s1)    │
+│ ┌──────────────┐ │
+│ │ ptr ─────────┼─┼────────▶ (points to same heap data)
+│ │ len: 5       │ │
+│ └──────────────┘ │
+│                  │
+│ i32 x = 42       │
+│ ┌──────────────┐ │
+│ │ 42           │ │         (No heap allocation - Copy type)
+│ └──────────────┘ │
+└──────────────────┘
+
+Move:    s1 → s3     (s1 becomes invalid, s3 owns the heap data)
+Clone:   s1.clone()  (New heap allocation, independent copy)
+Borrow:  &s1         (Pointer to same data, s1 still valid)
+#+END_EXAMPLE
+
+* Lifetime Quick Reference
+
+** When You Need Lifetime Annotations
+1. Returning a reference from a function
+2. Storing references in structs
+3. Multiple references with unclear relationships
+
+** Basic Lifetime Syntax
+#+BEGIN_SRC rust
+// Function returning reference needs lifetime
+fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() > y.len() { x } else { y }
+}
+
+// Struct containing reference needs lifetime
+struct Parser<'a> {
+    input: &'a str,
+}
+
+// Implementation block inherits lifetime
+impl<'a> Parser<'a> {
+    fn new(input: &'a str) -> Self {
+        Parser { input }
+    }
+}
+#+END_SRC
+
+** The Rules
+#+BEGIN_EXAMPLE
+'a means "some lifetime that the compiler will figure out"
+
+fn foo<'a>(x: &'a str) -> &'a str
+         ▲           ▲           ▲
+         │           │           │
+         └───────────┴───────────┘
+         "The output lives as long as the input"
+#+END_EXAMPLE
+
+** Common Lifetime Patterns
+#+BEGIN_SRC rust
+// Same lifetime for all references
+fn foo<'a>(x: &'a str, y: &'a str) -> &'a str
+
+// Static lifetime (lives forever)
+fn foo() -> &'static str {
+    "I live forever"  // String literals are 'static
+}
+
+// Different lifetimes when needed
+fn foo<'a, 'b>(x: &'a str, y: &'b str) -> &'a str
+// Return tied to x, not y
+#+END_SRC

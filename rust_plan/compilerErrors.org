@@ -1,0 +1,606 @@
+#+TITLE: Common Rust Compiler Errors Quick Fix Guide
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:2 num:t
+
+* Introduction
+
+This guide covers the top 15 compiler errors you'll encounter as a Rust beginner.
+Each entry includes: the error code, what triggers it, and how to fix it.
+
+* E0382: Use of moved value
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0382]: use of moved value: `s`
+  --> src/main.rs:4:20
+   |
+2  |     let s = String::from("hello");
+   |         - move occurs because `s` has type `String`, which does not implement the `Copy` trait
+3  |     let s2 = s;
+   |              - value moved here
+4  |     println!("{}", s);
+   |                    ^ value borrowed here after move
+#+END_EXAMPLE
+
+** What Causes This
+You tried to use a value after ownership was transferred to another variable.
+
+#+BEGIN_SRC rust
+let s = String::from("hello");
+let s2 = s;  // Ownership moved to s2
+println!("{}", s);  // ERROR: s is no longer valid
+#+END_SRC
+
+** Fix Option 1: Clone the value
+#+BEGIN_SRC rust
+let s = String::from("hello");
+let s2 = s.clone();  // Create a copy
+println!("{}", s);   // OK: s still valid
+#+END_SRC
+
+** Fix Option 2: Borrow instead
+#+BEGIN_SRC rust
+let s = String::from("hello");
+let s2 = &s;  // Borrow, don't move
+println!("{}", s);  // OK: s still valid
+#+END_SRC
+
+** Fix Option 3: Use after move
+#+BEGIN_SRC rust
+let s = String::from("hello");
+let s2 = s;
+println!("{}", s2);  // Use s2 instead
+#+END_SRC
+
+** Fix Option 4: Restructure to avoid needing both
+#+BEGIN_SRC rust
+fn process(s: String) {
+    println!("{}", s);
+    // Return s if caller needs it again
+}
+#+END_SRC
+
+* E0502: Cannot borrow as mutable because it is also borrowed as immutable
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0502]: cannot borrow `s` as mutable because it is also borrowed as immutable
+  --> src/main.rs:4:5
+   |
+3  |     let r1 = &s;
+   |              -- immutable borrow occurs here
+4  |     let r2 = &mut s;
+   |              ^^^^^^ mutable borrow occurs here
+5  |     println!("{}", r1);
+   |                    -- immutable borrow later used here
+#+END_EXAMPLE
+
+** What Causes This
+You tried to create a mutable borrow while an immutable borrow is still active.
+
+#+BEGIN_SRC rust
+let mut s = String::from("hello");
+let r1 = &s;      // Immutable borrow
+let r2 = &mut s;  // ERROR: Can't have &mut while & exists
+println!("{}", r1);
+#+END_SRC
+
+** Fix Option 1: Separate borrows in time
+#+BEGIN_SRC rust
+let mut s = String::from("hello");
+let r1 = &s;
+println!("{}", r1);  // r1 last used here
+
+let r2 = &mut s;     // OK: r1 no longer active
+r2.push_str(" world");
+#+END_SRC
+
+** Fix Option 2: Use scope to limit borrow lifetime
+#+BEGIN_SRC rust
+let mut s = String::from("hello");
+{
+    let r1 = &s;
+    println!("{}", r1);
+}  // r1 goes out of scope here
+
+let r2 = &mut s;  // OK: r1 no longer exists
+#+END_SRC
+
+** Fix Option 3: Clone if you need independent data
+#+BEGIN_SRC rust
+let mut s = String::from("hello");
+let r1 = s.clone();  // Independent copy
+let r2 = &mut s;     // OK: r1 is separate data
+#+END_SRC
+
+* E0499: Cannot borrow as mutable more than once
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0499]: cannot borrow `s` as mutable more than once at a time
+  --> src/main.rs:4:14
+   |
+3  |     let r1 = &mut s;
+   |              ------ first mutable borrow occurs here
+4  |     let r2 = &mut s;
+   |              ^^^^^^ second mutable borrow occurs here
+5  |     println!("{}", r1);
+   |                    -- first borrow later used here
+#+END_EXAMPLE
+
+** What Causes This
+You tried to create two mutable borrows to the same data simultaneously.
+
+#+BEGIN_SRC rust
+let mut s = String::from("hello");
+let r1 = &mut s;
+let r2 = &mut s;  // ERROR: Only one &mut allowed
+#+END_SRC
+
+** Fix: Separate the mutable borrows in time
+#+BEGIN_SRC rust
+let mut s = String::from("hello");
+let r1 = &mut s;
+r1.push_str(" world");
+// r1 no longer used after this
+
+let r2 = &mut s;  // OK: r1 not active anymore
+r2.push_str("!");
+#+END_SRC
+
+* E0505: Cannot move out of value because it is borrowed
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0505]: cannot move out of `s` because it is borrowed
+  --> src/main.rs:4:10
+   |
+3  |     let r = &s;
+   |             -- borrow of `s` occurs here
+4  |     let s2 = s;
+   |              ^ move out of `s` occurs here
+5  |     println!("{}", r);
+   |                    - borrow later used here
+#+END_EXAMPLE
+
+** What Causes This
+You tried to move a value while a reference to it still exists.
+
+#+BEGIN_SRC rust
+let s = String::from("hello");
+let r = &s;
+let s2 = s;  // ERROR: Can't move while borrowed
+println!("{}", r);
+#+END_SRC
+
+** Fix: End the borrow before moving
+#+BEGIN_SRC rust
+let s = String::from("hello");
+let r = &s;
+println!("{}", r);  // Last use of r
+
+let s2 = s;  // OK: r no longer active
+#+END_SRC
+
+* E0507: Cannot move out of borrowed content
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0507]: cannot move out of `*v` which is behind a shared reference
+  --> src/main.rs:3:9
+   |
+3  |         *v
+   |         ^^ move occurs because `*v` has type `String`, which does not implement the `Copy` trait
+#+END_EXAMPLE
+
+** What Causes This
+You tried to take ownership of data you only borrowed.
+
+#+BEGIN_SRC rust
+fn get_first(v: &Vec<String>) -> String {
+    v[0]  // ERROR: Can't move out of borrowed Vec
+}
+#+END_SRC
+
+** Fix Option 1: Clone the data
+#+BEGIN_SRC rust
+fn get_first(v: &Vec<String>) -> String {
+    v[0].clone()  // Create owned copy
+}
+#+END_SRC
+
+** Fix Option 2: Return a reference
+#+BEGIN_SRC rust
+fn get_first(v: &Vec<String>) -> &String {
+    &v[0]  // Return reference, not owned value
+}
+#+END_SRC
+
+** Fix Option 3: Take ownership of the input
+#+BEGIN_SRC rust
+fn get_first(v: Vec<String>) -> String {
+    v[0]  // OK: We own v, can move out of it
+}
+#+END_SRC
+
+* E0308: Mismatched types
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0308]: mismatched types
+  --> src/main.rs:2:24
+   |
+2  |     let x: i32 = "hello";
+   |            ---   ^^^^^^^ expected `i32`, found `&str`
+   |            |
+   |            expected due to this
+#+END_EXAMPLE
+
+** What Causes This
+You assigned a value of the wrong type to a variable.
+
+#+BEGIN_SRC rust
+let x: i32 = "hello";  // ERROR: "hello" is &str, not i32
+#+END_SRC
+
+** Fix Option 1: Use the correct type
+#+BEGIN_SRC rust
+let x: &str = "hello";  // Correct type
+#+END_SRC
+
+** Fix Option 2: Convert the value
+#+BEGIN_SRC rust
+let x: i32 = "42".parse().unwrap();  // Convert &str to i32
+#+END_SRC
+
+** Fix Option 3: Let Rust infer the type
+#+BEGIN_SRC rust
+let x = "hello";  // Rust infers &str
+#+END_SRC
+
+* E0277: Trait bound not satisfied
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0277]: `MyStruct` doesn't implement `Debug`
+  --> src/main.rs:5:22
+   |
+5  |     println!("{:?}", s);
+   |                      ^ `MyStruct` cannot be formatted using `{:?}`
+   |
+   = help: the trait `Debug` is not implemented for `MyStruct`
+   = note: add `#[derive(Debug)]` to `MyStruct` or manually `impl Debug for MyStruct`
+#+END_EXAMPLE
+
+** What Causes This
+You tried to use a trait method on a type that doesn't implement that trait.
+
+#+BEGIN_SRC rust
+struct MyStruct {
+    value: i32,
+}
+
+let s = MyStruct { value: 42 };
+println!("{:?}", s);  // ERROR: MyStruct doesn't implement Debug
+#+END_SRC
+
+** Fix: Add the required trait
+#+BEGIN_SRC rust
+#[derive(Debug)]  // Add Debug trait
+struct MyStruct {
+    value: i32,
+}
+
+let s = MyStruct { value: 42 };
+println!("{:?}", s);  // OK now
+#+END_SRC
+
+* E0425: Cannot find value in this scope
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0425]: cannot find value `x` in this scope
+  --> src/main.rs:3:20
+   |
+3  |     println!("{}", x);
+   |                    ^ not found in this scope
+#+END_EXAMPLE
+
+** What Causes This
+You used a variable that doesn't exist or is out of scope.
+
+#+BEGIN_SRC rust
+{
+    let x = 5;
+}
+println!("{}", x);  // ERROR: x not in scope
+#+END_SRC
+
+** Fix Option 1: Declare the variable
+#+BEGIN_SRC rust
+let x = 5;
+println!("{}", x);  // OK
+#+END_SRC
+
+** Fix Option 2: Move code into scope
+#+BEGIN_SRC rust
+{
+    let x = 5;
+    println!("{}", x);  // OK: x is in scope
+}
+#+END_SRC
+
+** Fix Option 3: Return value from scope
+#+BEGIN_SRC rust
+let x = {
+    let temp = 5;
+    temp  // Return from block
+};
+println!("{}", x);  // OK
+#+END_SRC
+
+* E0384: Cannot assign twice to immutable variable
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0384]: cannot assign twice to immutable variable `x`
+  --> src/main.rs:3:5
+   |
+2  |     let x = 5;
+   |         -
+   |         |
+   |         first assignment to `x`
+   |         help: consider making this binding mutable: `mut x`
+3  |     x = 6;
+   |     ^^^^^ cannot assign twice to immutable variable
+#+END_EXAMPLE
+
+** What Causes This
+You tried to modify an immutable variable.
+
+#+BEGIN_SRC rust
+let x = 5;
+x = 6;  // ERROR: x is immutable
+#+END_SRC
+
+** Fix: Make the variable mutable
+#+BEGIN_SRC rust
+let mut x = 5;
+x = 6;  // OK: x is mutable
+#+END_SRC
+
+* E0106: Missing lifetime specifier
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0106]: missing lifetime specifier
+  --> src/main.rs:1:33
+   |
+1  | fn longest(x: &str, y: &str) -> &str {
+   |               ----     ----     ^ expected named lifetime parameter
+   |
+   = help: this function's return type contains a borrowed value,
+           but the signature does not say whether it is borrowed from `x` or `y`
+#+END_EXAMPLE
+
+** What Causes This
+Rust can't determine the lifetime of a returned reference.
+
+#+BEGIN_SRC rust
+fn longest(x: &str, y: &str) -> &str {
+    if x.len() > y.len() { x } else { y }
+    // ERROR: Return borrows from x or y?
+}
+#+END_SRC
+
+** Fix: Add explicit lifetime annotations
+#+BEGIN_SRC rust
+fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() > y.len() { x } else { y }
+    // OK: Return has same lifetime as inputs
+}
+#+END_SRC
+
+* E0621: Explicit lifetime required
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0621]: explicit lifetime required in the type of `s`
+  --> src/main.rs:2:5
+   |
+1  | fn parse(s: &str) -> &str {
+   |             ---- help: add explicit lifetime `'a` to the type of `s`: `&'a str`
+2  |     &s[0..5]
+   |     ^^^^^^^^ lifetime `'a` required
+#+END_EXAMPLE
+
+** What Causes This
+Similar to E0106, but in a different context.
+
+** Fix: Add lifetime annotation
+#+BEGIN_SRC rust
+fn parse<'a>(s: &'a str) -> &'a str {
+    &s[0..5]
+}
+#+END_SRC
+
+* E0597: Borrowed value does not live long enough
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0597]: `s` does not live long enough
+  --> src/main.rs:4:14
+   |
+3  |         let s = String::from("hello");
+   |             - binding `s` declared here
+4  |         r = &s;
+   |             ^^ borrowed value does not live long enough
+5  |     }
+   |     - `s` dropped here while still borrowed
+6  |     println!("{}", r);
+   |                    - borrow later used here
+#+END_EXAMPLE
+
+** What Causes This
+A reference outlives the data it refers to (dangling reference).
+
+#+BEGIN_SRC rust
+let r;
+{
+    let s = String::from("hello");
+    r = &s;
+}  // s dropped here
+println!("{}", r);  // ERROR: r points to dropped data
+#+END_SRC
+
+** Fix: Ensure data outlives reference
+#+BEGIN_SRC rust
+let s = String::from("hello");
+let r = &s;
+println!("{}", r);  // OK: s lives longer than r
+#+END_SRC
+
+* E0015: Cannot call non-const fn in constant
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0015]: cannot call non-const fn `String::from` in constants
+  --> src/main.rs:1:18
+   |
+1  | const S: String = String::from("hello");
+   |                   ^^^^^^^^^^^^^^^^^^^^^
+#+END_EXAMPLE
+
+** What Causes This
+You tried to use a non-const function in a const context.
+
+#+BEGIN_SRC rust
+const S: String = String::from("hello");  // ERROR: Not const-compatible
+#+END_SRC
+
+** Fix Option 1: Use const-compatible types
+#+BEGIN_SRC rust
+const S: &str = "hello";  // OK: String literals are const
+#+END_SRC
+
+** Fix Option 2: Use static instead
+#+BEGIN_SRC rust
+static S: &str = "hello";
+#+END_SRC
+
+** Fix Option 3: Use lazy_static
+#+BEGIN_SRC rust
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref S: String = String::from("hello");
+}
+#+END_SRC
+
+* E0596: Cannot borrow as mutable
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0596]: cannot borrow `s` as mutable, as it is not declared as mutable
+  --> src/main.rs:3:5
+   |
+2  |     let s = String::from("hello");
+   |         - help: consider changing this to be mutable: `mut s`
+3  |     s.push_str(" world");
+   |     ^ cannot borrow as mutable
+#+END_EXAMPLE
+
+** What Causes This
+You tried to mutably borrow an immutable variable.
+
+#+BEGIN_SRC rust
+let s = String::from("hello");
+s.push_str(" world");  // ERROR: s is immutable
+#+END_SRC
+
+** Fix: Declare variable as mutable
+#+BEGIN_SRC rust
+let mut s = String::from("hello");
+s.push_str(" world");  // OK
+#+END_SRC
+
+* E0716: Temporary value dropped while borrowed
+
+** Error Message
+#+BEGIN_EXAMPLE
+error[E0716]: temporary value dropped while borrowed
+  --> src/main.rs:2:17
+   |
+2  |     let r = &String::from("hello");
+   |              ^^^^^^^^^^^^^^^^^^^^^ creates a temporary which is freed while still in use
+3  |     println!("{}", r);
+   |                    - borrow later used here
+#+END_EXAMPLE
+
+** What Causes This
+You borrowed a temporary value that gets dropped immediately.
+
+#+BEGIN_SRC rust
+let r = &String::from("hello");  // Temporary String dropped
+println!("{}", r);  // ERROR: r points to dropped data
+#+END_SRC
+
+** Fix: Store the value first
+#+BEGIN_SRC rust
+let s = String::from("hello");
+let r = &s;
+println!("{}", r);  // OK
+#+END_SRC
+
+* Quick Decision Tree
+
+#+BEGIN_EXAMPLE
+Got a compiler error?
+│
+├─ "use of moved value" (E0382)
+│   └─ Clone, borrow, or restructure
+│
+├─ "cannot borrow as mutable because..." (E0502)
+│   └─ Separate borrows in time
+│
+├─ "cannot borrow as mutable more than once" (E0499)
+│   └─ Only one &mut at a time
+│
+├─ "cannot move out of" (E0505/E0507)
+│   └─ Clone or return reference
+│
+├─ "mismatched types" (E0308)
+│   └─ Check types, convert if needed
+│
+├─ "trait bound not satisfied" (E0277)
+│   └─ Add #[derive] or implement trait
+│
+├─ "cannot find value" (E0425)
+│   └─ Declare variable or check scope
+│
+├─ "cannot assign twice" (E0384)
+│   └─ Make variable mut
+│
+├─ "missing lifetime" (E0106)
+│   └─ Add lifetime annotation
+│
+├─ "does not live long enough" (E0597)
+│   └─ Ensure data outlives reference
+│
+└─ Other error?
+    └─ Read full error message
+    └─ Check Rust error index: https://doc.rust-lang.org/error_codes/
+#+END_EXAMPLE
+
+* General Debugging Tips
+
+1. **Read the FULL error message** - Rust's errors are incredibly helpful
+2. **Check the "help:" suggestion** - Often tells you exactly what to do
+3. **Look at line numbers** - Both where error occurs and where value was created
+4. **cargo clean** - Sometimes fixes weird caching issues
+5. **Search error code** - `https://doc.rust-lang.org/error_codes/E0382.html`
+6. **Add type annotations** - Helps you and the compiler understand intent
+7. **Break complex expressions** - Into smaller steps to isolate the issue
+8. **Use println!("{:?}")** - To debug what values actually are
+#+END_EXAMPLE

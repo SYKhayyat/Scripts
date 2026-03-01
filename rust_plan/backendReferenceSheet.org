@@ -1,0 +1,794 @@
+#+TITLE: Nexus Backend Command Reference
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:2 num:t
+
+* Quick Reference Table
+
+| Backend   | Check Available   | List Installed                | Install                              | Remove                              | Orphans                        | Needs Sudo |
+|-----------+-------------------+-------------------------------+--------------------------------------+-------------------------------------+--------------------------------+------------|
+| apt       | which apt         | apt list --installed          | sudo apt install -y PKG              | sudo apt remove -y PKG              | apt autoremove --dry-run       | Yes        |
+| pacman    | which pacman      | pacman -Q                     | sudo pacman -S --noconfirm PKG       | sudo pacman -R --noconfirm PKG      | pacman -Qtdq                   | Yes        |
+| dnf       | which dnf         | dnf list installed            | sudo dnf install -y PKG              | sudo dnf remove -y PKG              | dnf autoremove --assumeno      | Yes        |
+| zypper    | which zypper      | zypper search --installed-only| sudo zypper --non-interactive install PKG | sudo zypper --non-interactive remove PKG | -                        | Yes        |
+| apk       | which apk         | apk list --installed          | sudo apk add PKG                     | sudo apk del PKG                    | -                              | Yes        |
+| flatpak   | which flatpak     | flatpak list                  | flatpak install -y PKG               | flatpak uninstall -y PKG            | flatpak uninstall --unused     | No*        |
+| snap      | which snap        | snap list                     | sudo snap install PKG                | sudo snap remove PKG                | -                              | Yes        |
+| brew      | which brew        | brew list                     | brew install PKG                     | brew uninstall PKG                  | brew autoremove                | No         |
+| pip       | which pip         | pip list --format=freeze      | pip install PKG                      | pip uninstall -y PKG                | -                              | No*        |
+| pipx      | which pipx        | pipx list                     | pipx install PKG                     | pipx uninstall PKG                  | -                              | No         |
+| npm       | which npm         | npm list -g --depth=0         | npm install -g PKG                   | npm uninstall -g PKG                | -                              | No         |
+| yarn      | which yarn        | yarn global list              | yarn global add PKG                  | yarn global remove PKG              | -                              | No         |
+| bun       | which bun         | (check ~/.bun/bin)            | bun add --global PKG                 | bun remove --global PKG             | -                              | No         |
+| cargo     | which cargo       | cargo install --list          | cargo install PKG                    | cargo uninstall PKG                 | -                              | No         |
+| gem       | which gem         | gem list                      | gem install PKG                      | gem uninstall PKG                   | gem cleanup                    | No*        |
+| composer  | which composer    | composer global show          | composer global require PKG          | composer global remove PKG          | -                              | No         |
+| go        | which go          | (check $GOBIN)                | go install PKG@latest                | (delete binary)                     | -                              | No         |
+| github    | -                 | (read githubInstalled.txt)    | (download + install)                 | (delete file + update tracking)     | -                              | Varies     |
+
+Note: * May need sudo depending on installation method
+
+* System Package Managers
+
+** APT (Debian, Ubuntu, Mint, Pop!_OS)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which apt
+# Returns: /usr/bin/apt (if available)
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+apt list --installed
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+vim/jammy,now 2:8.2.3995-1ubuntu2 amd64 [installed]
+git/jammy,now 1:2.34.1-1ubuntu1 amd64 [installed]
+#+END_EXAMPLE
+
+Parsing: Split on '/', take first part as package name
+
+*** Install Packages
+#+BEGIN_SRC bash
+sudo apt install -y vim git curl
+#+END_SRC
+
+Flags:
+- -y: Auto-confirm (non-interactive)
+- --no-install-recommends: Skip recommended packages
+
+*** Remove Packages
+#+BEGIN_SRC bash
+sudo apt remove -y vim
+sudo apt purge -y vim  # Also remove config files
+#+END_SRC
+
+*** List Orphans
+#+BEGIN_SRC bash
+apt autoremove --dry-run
+#+END_SRC
+
+*** Remove Orphans
+#+BEGIN_SRC bash
+sudo apt autoremove -y
+#+END_SRC
+
+*** Common Errors
+| Error | Cause | Solution |
+|-------+-------+----------|
+| E: Could not get lock | Another apt process running | Wait or kill other process |
+| E: Unable to locate package | Package not in repos | Check spelling, update apt |
+| E: Unmet dependencies | Dependency conflict | Run apt --fix-broken install |
+
+** Pacman (Arch, Manjaro, EndeavourOS)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which pacman
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+pacman -Q
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+vim 9.0.1000-1
+git 2.39.0-1
+#+END_EXAMPLE
+
+Parsing: Split on space, take first part
+
+*** List Explicitly Installed (not dependencies)
+#+BEGIN_SRC bash
+pacman -Qe
+#+END_SRC
+
+*** Install Packages
+#+BEGIN_SRC bash
+sudo pacman -S --noconfirm vim git
+#+END_SRC
+
+Flags:
+- -S: Sync (install)
+- --noconfirm: Skip confirmation
+- --needed: Skip if already installed
+
+*** Remove Packages
+#+BEGIN_SRC bash
+sudo pacman -R --noconfirm vim      # Keep dependencies
+sudo pacman -Rs --noconfirm vim     # Remove with unused deps
+sudo pacman -Rns --noconfirm vim    # Also remove config files
+#+END_SRC
+
+*** List Orphans
+#+BEGIN_SRC bash
+pacman -Qtdq
+#+END_SRC
+
+Returns package names only, one per line. Empty if no orphans.
+
+*** Remove Orphans
+#+BEGIN_SRC bash
+sudo pacman -Rns $(pacman -Qtdq)
+#+END_SRC
+
+*** Common Errors
+| Error | Cause | Solution |
+|-------+-------+----------|
+| unable to lock database | Another pacman running | Wait or remove /var/lib/pacman/db.lck |
+| target not found | Package doesn't exist | Check spelling, sync database |
+| conflicting files | File already exists | Use --overwrite or resolve manually |
+
+** DNF (Fedora, RHEL, CentOS)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which dnf
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+dnf list installed
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+vim-enhanced.x86_64                    2:9.0.1000-1.fc37           @updates
+git.x86_64                             2.39.0-1.fc37               @updates
+#+END_EXAMPLE
+
+Parsing: First column, split on '.', take first part
+
+*** Install Packages
+#+BEGIN_SRC bash
+sudo dnf install -y vim git
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+sudo dnf remove -y vim
+#+END_SRC
+
+*** List Orphans (dry-run)
+#+BEGIN_SRC bash
+dnf autoremove --assumeno
+#+END_SRC
+
+*** Remove Orphans
+#+BEGIN_SRC bash
+sudo dnf autoremove -y
+#+END_SRC
+
+** Zypper (openSUSE, SLES)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which zypper
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+zypper search --installed-only
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+i | vim           | Text editor       | package
+i | git           | Version control   | package
+#+END_EXAMPLE
+
+Parsing: Split on '|', second column is package name
+
+*** Install Packages
+#+BEGIN_SRC bash
+sudo zypper --non-interactive install vim git
+#+END_SRC
+
+Note: Uses --non-interactive instead of -y
+
+*** Remove Packages
+#+BEGIN_SRC bash
+sudo zypper --non-interactive remove vim
+#+END_SRC
+
+** APK (Alpine Linux)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which apk
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+apk list --installed
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+vim-9.0.1000-r0 x86_64 {vim} (Vim)
+git-2.39.0-r0 x86_64 {git} (GPL-2.0-only)
+#+END_EXAMPLE
+
+Parsing: Split on '-', reconstruct name (can be complex)
+
+*** Install Packages
+#+BEGIN_SRC bash
+sudo apk add vim git
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+sudo apk del vim
+#+END_SRC
+
+* Universal Package Managers
+
+** Flatpak
+
+*** Check Availability
+#+BEGIN_SRC bash
+which flatpak
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+flatpak list
+flatpak list --app  # Applications only (not runtimes)
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+Name                      Application ID                     Version   Branch
+Spotify                   com.spotify.Client                 1.2.0     stable
+Discord                   com.discordapp.Discord             0.0.23    stable
+#+END_EXAMPLE
+
+Parsing: Application ID is the package identifier
+
+*** Install Packages
+#+BEGIN_SRC bash
+flatpak install -y flathub com.spotify.Client
+flatpak install -y com.spotify.Client  # If remote is configured
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+flatpak uninstall -y com.spotify.Client
+#+END_SRC
+
+*** Remove Unused Runtimes
+#+BEGIN_SRC bash
+flatpak uninstall --unused
+#+END_SRC
+
+** Snap
+
+*** Check Availability
+#+BEGIN_SRC bash
+which snap
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+snap list
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+Name      Version    Rev    Tracking       Publisher   Notes
+core22    20230404   607    latest/stable  canonical✓  base
+firefox   111.0      2356   latest/stable  mozilla✓    -
+#+END_EXAMPLE
+
+Parsing: First column is package name
+
+*** Install Packages
+#+BEGIN_SRC bash
+sudo snap install firefox
+sudo snap install code --classic  # For classic confinement
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+sudo snap remove firefox
+#+END_SRC
+
+** Homebrew (macOS, Linux)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which brew
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+brew list
+brew list --formula  # Formulae only
+brew list --cask     # Casks only (macOS apps)
+#+END_SRC
+
+Output: One package per line
+
+*** Install Packages
+#+BEGIN_SRC bash
+brew install vim git
+brew install --cask visual-studio-code  # macOS cask
+#+END_SRC
+
+Note: Does NOT require sudo
+
+*** Remove Packages
+#+BEGIN_SRC bash
+brew uninstall vim
+#+END_SRC
+
+*** Remove Orphans
+#+BEGIN_SRC bash
+brew autoremove
+#+END_SRC
+
+* Language Package Managers
+
+** Pip (Python)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which pip
+which pip3  # Alternative on some systems
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+pip list --format=freeze
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+requests==2.28.1
+flask==2.2.2
+#+END_EXAMPLE
+
+Parsing: Split on '==', first part is package name
+
+*** Install Packages
+#+BEGIN_SRC bash
+pip install requests flask
+pip install --user requests  # User install (no sudo)
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+pip uninstall -y requests
+#+END_SRC
+
+*** Note on Virtual Environments
+Pip operates on the active Python environment. For system-wide:
+#+BEGIN_SRC bash
+sudo pip install package  # Not recommended
+pip install --user package  # Better
+#+END_SRC
+
+** Pipx (Python Applications)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which pipx
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+pipx list
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+venvs are in /home/user/.local/pipx/venvs
+apps are exposed on your $PATH at /home/user/.local/bin
+   package black 23.1.0, installed using Python 3.11.2
+    - black
+    - blackd
+   package flake8 6.0.0, installed using Python 3.11.2
+    - flake8
+#+END_EXAMPLE
+
+Parsing: Lines starting with "package", second word is name
+
+*** Install Packages
+#+BEGIN_SRC bash
+pipx install black
+pipx install flake8
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+pipx uninstall black
+#+END_SRC
+
+** NPM (Node.js)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which npm
+#+END_SRC
+
+*** List Installed Packages (Global)
+#+BEGIN_SRC bash
+npm list -g --depth=0
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+/usr/lib
+├── npm@9.5.0
+├── typescript@4.9.5
+└── yarn@1.22.19
+#+END_EXAMPLE
+
+Parsing: Lines with ├── or └──, extract package@version
+
+*** Install Packages
+#+BEGIN_SRC bash
+npm install -g typescript prettier
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+npm uninstall -g typescript
+#+END_SRC
+
+** Yarn (Node.js)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which yarn
+#+END_SRC
+
+*** List Installed Packages (Global)
+#+BEGIN_SRC bash
+yarn global list
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+yarn global v1.22.19
+info "typescript@4.9.5" has binaries:
+   - tsc
+   - tsserver
+#+END_EXAMPLE
+
+Parsing: Lines with "info", extract package@version
+
+*** Install Packages
+#+BEGIN_SRC bash
+yarn global add typescript
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+yarn global remove typescript
+#+END_SRC
+
+** Bun (JavaScript)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which bun
+#+END_SRC
+
+*** List Installed Packages (Global)
+#+BEGIN_SRC bash
+ls ~/.bun/bin
+# Or parse ~/.bun/install/global/package.json
+#+END_SRC
+
+*** Install Packages
+#+BEGIN_SRC bash
+bun add --global typescript
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+bun remove --global typescript
+#+END_SRC
+
+** Cargo (Rust)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which cargo
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+cargo install --list
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+ripgrep v13.0.0:
+    rg
+fd-find v8.6.0:
+    fd
+#+END_EXAMPLE
+
+Parsing: Lines not starting with whitespace, extract name (before 'v')
+
+*** Install Packages
+#+BEGIN_SRC bash
+cargo install ripgrep fd-find
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+cargo uninstall ripgrep
+#+END_SRC
+
+** Gem (Ruby)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which gem
+#+END_SRC
+
+*** List Installed Packages
+#+BEGIN_SRC bash
+gem list
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+bundler (2.4.6, default: 2.3.7)
+rails (7.0.4)
+#+END_EXAMPLE
+
+Parsing: Split on space, first part is name
+
+*** Install Packages
+#+BEGIN_SRC bash
+gem install rails
+gem install --user-install rails  # User install
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+gem uninstall rails
+#+END_SRC
+
+*** Cleanup Old Versions
+#+BEGIN_SRC bash
+gem cleanup
+#+END_SRC
+
+** Composer (PHP)
+
+*** Check Availability
+#+BEGIN_SRC bash
+which composer
+#+END_SRC
+
+*** List Installed Packages (Global)
+#+BEGIN_SRC bash
+composer global show
+#+END_SRC
+
+Output format:
+#+BEGIN_EXAMPLE
+laravel/installer 4.3.0 Laravel application installer.
+phpunit/phpunit   10.0.0 The PHP Unit Testing framework.
+#+END_EXAMPLE
+
+Parsing: First column is package name (vendor/package)
+
+*** Install Packages
+#+BEGIN_SRC bash
+composer global require laravel/installer
+#+END_SRC
+
+*** Remove Packages
+#+BEGIN_SRC bash
+composer global remove laravel/installer
+#+END_SRC
+
+** Go
+
+*** Check Availability
+#+BEGIN_SRC bash
+which go
+#+END_SRC
+
+*** List Installed Packages
+Go doesn't track installed packages. Check GOBIN or GOPATH/bin:
+#+BEGIN_SRC bash
+ls $(go env GOBIN)
+# Or
+ls $(go env GOPATH)/bin
+#+END_SRC
+
+*** Install Packages
+#+BEGIN_SRC bash
+go install golang.org/x/tools/gopls@latest
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+#+END_SRC
+
+Note: Always include @latest or @version
+
+*** Remove Packages
+Go has no uninstall command. Delete the binary:
+#+BEGIN_SRC bash
+rm $(go env GOBIN)/gopls
+#+END_SRC
+
+* GitHub Releases
+
+** Check Availability
+Always available (uses HTTP API)
+
+** List "Installed" Packages
+Read from tracking file:
+#+BEGIN_SRC bash
+cat ~/.config/nexus/githubInstalled.txt
+#+END_SRC
+
+Format:
+#+BEGIN_EXAMPLE
+lazygit=0.40.2
+delta=0.16.5
+#+END_EXAMPLE
+
+** Install Process
+1. Query GitHub API for latest release
+2. Find matching asset for architecture
+3. Download asset
+4. Install based on type:
+   - .deb: sudo dpkg -i file.deb
+   - .rpm: sudo rpm -i file.rpm
+   - .tar.gz: Extract, chmod +x, copy to path
+   - .AppImage: chmod +x, copy to path
+   - .zip: Extract, chmod +x, copy to path
+
+** API Endpoint
+#+BEGIN_SRC bash
+# Latest release
+curl -H "User-Agent: nexus" \
+  https://api.github.com/repos/OWNER/REPO/releases/latest
+
+# With auth (higher rate limit)
+curl -H "User-Agent: nexus" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  https://api.github.com/repos/OWNER/REPO/releases/latest
+#+END_SRC
+
+** Asset Selection Logic
+#+BEGIN_EXAMPLE
+1. Get system architecture: x86_64, aarch64, arm
+2. Get system OS: linux, darwin, windows
+3. Filter assets by:
+   - Contains architecture string (x86_64, amd64, 64)
+   - Contains OS string (linux, Linux)
+   - Matches requested type (.deb, .tar.gz, etc.)
+4. Select best match
+#+END_EXAMPLE
+
+** Remove Process
+1. Delete installed file
+2. Remove entry from githubInstalled.txt
+
+* Output Parsing Patterns
+
+** Rust Code Patterns
+
+*** APT Parsing
+#+BEGIN_SRC rust
+fn parse_apt_list(output: &str) -> Vec<String> {
+    output
+        .lines()
+        .filter(|line| !line.is_empty() && !line.starts_with("Listing"))
+        .filter_map(|line| line.split('/').next())
+        .map(String::from)
+        .collect()
+}
+#+END_SRC
+
+*** Pacman Parsing
+#+BEGIN_SRC rust
+fn parse_pacman_q(output: &str) -> Vec<String> {
+    output
+        .lines()
+        .filter(|line| !line.is_empty())
+        .filter_map(|line| line.split_whitespace().next())
+        .map(String::from)
+        .collect()
+}
+#+END_SRC
+
+*** Pip Parsing
+#+BEGIN_SRC rust
+fn parse_pip_freeze(output: &str) -> Vec<String> {
+    output
+        .lines()
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .filter_map(|line| line.split("==").next())
+        .map(String::from)
+        .collect()
+}
+#+END_SRC
+
+*** Cargo Parsing
+#+BEGIN_SRC rust
+fn parse_cargo_list(output: &str) -> Vec<String> {
+    output
+        .lines()
+        .filter(|line| !line.starts_with(' ') && !line.is_empty())
+        .filter_map(|line| {
+            // "ripgrep v13.0.0:" -> "ripgrep"
+            line.split_whitespace().next()
+        })
+        .map(String::from)
+        .collect()
+}
+#+END_SRC
+
+*** NPM Global Parsing
+#+BEGIN_SRC rust
+fn parse_npm_global(output: &str) -> Vec<String> {
+    output
+        .lines()
+        .filter(|line| line.contains("├──") || line.contains("└──"))
+        .filter_map(|line| {
+            // "├── typescript@4.9.5" -> "typescript"
+            line.split(&['├', '└', '─', ' '][..])
+                .last()
+                .and_then(|s| s.split('@').next())
+                .map(|s| s.trim().to_string())
+        })
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+#+END_SRC
+
+* Quick Copy-Paste Commands
+
+** Test All Backends Availability
+#+BEGIN_SRC bash
+echo "=== Checking backend availability ==="
+for cmd in apt pacman dnf zypper apk flatpak snap brew pip pipx npm yarn bun cargo gem composer go; do
+    if which $cmd > /dev/null 2>&1; then
+        echo "✓ $cmd: $(which $cmd)"
+    else
+        echo "✗ $cmd: not found"
+    fi
+done
+#+END_SRC
+
+** List All Installed (Multi-Backend)
+#+BEGIN_SRC bash
+echo "=== APT ===" && apt list --installed 2>/dev/null | head -20
+echo "=== Pip ===" && pip list --format=freeze 2>/dev/null | head -20
+echo "=== NPM ===" && npm list -g --depth=0 2>/dev/null | head -20
+echo "=== Cargo ===" && cargo install --list 2>/dev/null | head -20
+#+END_SRC

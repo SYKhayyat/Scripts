@@ -1,0 +1,431 @@
+#+TITLE: Nexus Debugging Checklist
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:2 num:t
+
+* Immediate Actions When Stuck
+
+** Step 0: Don't Panic (3 seconds)
+Take a breath. Rust's compiler is trying to HELP you.
+
+** Step 1: Read the FULL Error (30 seconds)
+#+BEGIN_EXAMPLE
+error[E0382]: use of moved value: `s`
+ --> src/main.rs:4:20
+  |
+2 |     let s = String::from("hello");
+  |         - move occurs because `s` has type `String`
+3 |     let s2 = s;
+  |              - value moved here            ← WHERE it moved
+4 |     println!("{}", s);
+  |                    ^ value borrowed here after move  ← WHERE you used it
+  |
+  = note: ...
+help: consider cloning the value if ...     ← SUGGESTED FIX
+#+END_EXAMPLE
+
+Key parts:
+- [ ] Error code (E0382)
+- [ ] Line numbers (both cause and effect)
+- [ ] "help:" suggestion
+- [ ] "note:" explanation
+
+** Step 2: Check the Suggested Fix (10 seconds)
+The compiler often tells you EXACTLY what to do:
+- "consider cloning" → Add .clone()
+- "consider borrowing" → Add &
+- "consider making mutable" → Add mut
+- "add lifetime annotation" → Add <'a>
+
+* Debugging by Error Type
+
+** Ownership/Borrowing Errors
+
+*** "use of moved value"
+#+BEGIN_EXAMPLE
+Diagnosis: You used a value after giving it away
+Fixes:
+  [ ] Clone before the move: let copy = value.clone();
+  [ ] Borrow instead of move: &value
+  [ ] Reorder code to use before move
+  [ ] Have function return the value back
+#+END_EXAMPLE
+
+*** "cannot borrow as mutable because also borrowed as immutable"
+#+BEGIN_EXAMPLE
+Diagnosis: You have &T and &mut T at the same time
+Fixes:
+  [ ] Finish using the immutable borrow first
+  [ ] Use a scope {} to limit the immutable borrow
+  [ ] Clone to create independent data
+#+END_EXAMPLE
+
+*** "cannot borrow as mutable more than once"
+#+BEGIN_EXAMPLE
+Diagnosis: You have two &mut references simultaneously
+Fixes:
+  [ ] Finish using the first &mut before creating second
+  [ ] Restructure to use one reference
+#+END_EXAMPLE
+
+*** "does not live long enough"
+#+BEGIN_EXAMPLE
+Diagnosis: Reference outlives the data it points to
+Fixes:
+  [ ] Move data to outer scope
+  [ ] Return owned data instead of reference
+  [ ] Clone instead of borrow
+#+END_EXAMPLE
+
+** Type Errors
+
+*** "mismatched types"
+#+BEGIN_EXAMPLE
+Diagnosis: Expected one type, got another
+Fixes:
+  [ ] Check the expected type carefully
+  [ ] Convert: .to_string(), .parse(), .into()
+  [ ] Fix function signature
+  [ ] Remove/add & or &mut
+#+END_EXAMPLE
+
+*** "expected X, found &X" or vice versa
+#+BEGIN_EXAMPLE
+Diagnosis: Reference mismatch
+Fixes:
+  [ ] Add & to create reference
+  [ ] Add * to dereference
+  [ ] Use .as_ref() or .as_mut()
+#+END_EXAMPLE
+
+*** "the trait X is not implemented for Y"
+#+BEGIN_EXAMPLE
+Diagnosis: Missing trait implementation
+Fixes:
+  [ ] Add #[derive(X)] if derivable
+  [ ] Implement the trait manually
+  [ ] Check you imported the trait: use Trait;
+  [ ] Use a different type that implements it
+#+END_EXAMPLE
+
+** Async Errors
+
+*** "future cannot be sent between threads safely"
+#+BEGIN_EXAMPLE
+Diagnosis: Non-Send type held across await
+Fixes:
+  [ ] Don't hold the non-Send value across await
+  [ ] Clone before the await
+  [ ] Use Arc<Mutex<T>> for sharing
+#+END_EXAMPLE
+
+*** "async block may outlive the current function"
+#+BEGIN_EXAMPLE
+Diagnosis: Async block captures non-'static reference
+Fixes:
+  [ ] Clone data before the async block
+  [ ] Move owned data into async block
+  [ ] Use Arc for shared ownership
+#+END_EXAMPLE
+
+* Quick Diagnostic Commands
+
+** Compiler Checks (No Build)
+#+BEGIN_SRC bash
+# Fast syntax check
+cargo check
+
+# Check with all features
+cargo check --all-features
+
+# Check specific target
+cargo check --bin nexus
+#+END_SRC
+
+** Verbose Error Output
+#+BEGIN_SRC bash
+# More detailed errors
+RUST_BACKTRACE=1 cargo build
+
+# Full backtrace
+RUST_BACKTRACE=full cargo build
+
+# Explain error code
+rustc --explain E0382
+#+END_SRC
+
+** Linting
+#+BEGIN_SRC bash
+# Run clippy for suggestions
+cargo clippy
+
+# Pedantic mode (more warnings)
+cargo clippy -- -W clippy::pedantic
+#+END_SRC
+
+* Debugging Values at Runtime
+
+** Print Debugging
+#+BEGIN_SRC rust
+// Basic print
+println!("Value: {}", x);
+
+// Debug print (requires #[derive(Debug)])
+println!("Debug: {:?}", x);
+
+// Pretty debug print
+println!("Pretty: {:#?}", x);
+
+// Print with variable name and line
+dbg!(x);  // Prints: [src/main.rs:10] x = 5
+dbg!(&x); // Doesn't move x
+#+END_SRC
+
+** Tracing (for async/complex code)
+#+BEGIN_SRC rust
+use tracing::{info, debug, warn, error, trace};
+
+trace!("Very detailed: {:?}", data);
+debug!("Debugging: {}", value);
+info!("Normal operation: {}", status);
+warn!("Warning: {}", message);
+error!("Error occurred: {:?}", err);
+
+// With structured fields
+info!(package = %name, version = %ver, "Installing");
+#+END_SRC
+
+** Assert for Assumptions
+#+BEGIN_SRC rust
+// Panic if false
+assert!(condition);
+assert!(x > 0, "x must be positive, got {}", x);
+
+// Compare values
+assert_eq!(actual, expected);
+assert_ne!(actual, unexpected);
+
+// Debug-only asserts (removed in release)
+debug_assert!(condition);
+debug_assert_eq!(a, b);
+#+END_SRC
+
+* Common Runtime Issues
+
+** Panic: "called unwrap() on None"
+#+BEGIN_EXAMPLE
+Diagnosis: unwrap() on Option::None
+Debugging:
+  [ ] Find which unwrap() panicked (check backtrace)
+  [ ] Print the Option before unwrap: dbg!(&opt);
+  [ ] Add context: .expect("message")
+  
+Fixes:
+  [ ] Use match or if let
+  [ ] Use unwrap_or(default)
+  [ ] Use ? operator
+  [ ] Fix why the Option is None
+#+END_EXAMPLE
+
+** Panic: "called unwrap() on Err"
+#+BEGIN_EXAMPLE
+Diagnosis: unwrap() on Result::Err
+Debugging:
+  [ ] Print the Result: dbg!(&result);
+  [ ] Check the actual error: result.as_ref().err()
+  
+Fixes:
+  [ ] Use match for both cases
+  [ ] Use ? to propagate
+  [ ] Use .map_err() to transform error
+  [ ] Fix the underlying error
+#+END_EXAMPLE
+
+** Panic: "index out of bounds"
+#+BEGIN_EXAMPLE
+Diagnosis: Array/Vec access beyond length
+Debugging:
+  [ ] Print length: dbg!(vec.len());
+  [ ] Print index: dbg!(index);
+  
+Fixes:
+  [ ] Check bounds before access
+  [ ] Use .get(index) instead of [index]
+  [ ] Fix index calculation
+#+END_EXAMPLE
+
+** Infinite Loop / Hang
+#+BEGIN_EXAMPLE
+Diagnosis: Code never terminates
+Debugging:
+  [ ] Add println! in loop to see iterations
+  [ ] Check loop condition
+  [ ] Add counter and break after N iterations
+  [ ] Ctrl+C and check backtrace
+  
+Fixes:
+  [ ] Fix loop condition
+  [ ] Add break condition
+  [ ] Check for missing await in async
+#+END_EXAMPLE
+
+* Systematic Debugging Process
+
+** Level 1: Quick Checks (2 min)
+#+BEGIN_EXAMPLE
+[ ] cargo check passes?
+[ ] cargo clippy clean?
+[ ] Read the full error message?
+[ ] Try the compiler's suggestion?
+#+END_EXAMPLE
+
+** Level 2: Isolate the Problem (5 min)
+#+BEGIN_EXAMPLE
+[ ] Comment out code to find the breaking line
+[ ] Create minimal reproduction
+[ ] Check if it's in your code or a dependency
+[ ] Try the same thing in a fresh file
+#+END_EXAMPLE
+
+** Level 3: Understand the Problem (10 min)
+#+BEGIN_EXAMPLE
+[ ] Search the error code online
+[ ] Read the relevant Rust Book chapter
+[ ] Check Stack Overflow for similar issues
+[ ] Re-read the ownership/borrowing rules
+#+END_EXAMPLE
+
+** Level 4: Get Help (after 30 min)
+#+BEGIN_EXAMPLE
+When asking for help, include:
+[ ] The FULL error message
+[ ] Minimal code that reproduces the issue
+[ ] What you've tried
+[ ] What you expected vs what happened
+
+Where to ask:
+- Rust Users Forum (users.rust-lang.org)
+- Rust Discord
+- Stack Overflow [rust] tag
+- r/rust subreddit
+#+END_EXAMPLE
+
+* Testing and Verification
+
+** Quick Test Commands
+#+BEGIN_SRC bash
+# Run all tests
+cargo test
+
+# Run specific test
+cargo test test_name
+
+# Run tests in specific module
+cargo test module_name::
+
+# Show test output
+cargo test -- --nocapture
+
+# Run only ignored tests
+cargo test -- --ignored
+
+# Run single-threaded (for debugging)
+cargo test -- --test-threads=1
+#+END_SRC
+
+** Test Debugging
+#+BEGIN_SRC rust
+#[test]
+fn test_something() {
+    let result = function_under_test();
+    
+    // Add debugging
+    dbg!(&result);
+    
+    // Run with: cargo test -- --nocapture
+    println!("Result: {:?}", result);
+    
+    assert_eq!(result, expected);
+}
+#+END_SRC
+
+* Build Issues
+
+** "cannot find crate"
+#+BEGIN_EXAMPLE
+Fixes:
+  [ ] Check Cargo.toml has the dependency
+  [ ] Run cargo update
+  [ ] Check spelling and version
+#+END_EXAMPLE
+
+** "unresolved import"
+#+BEGIN_EXAMPLE
+Fixes:
+  [ ] Check module is declared: mod module_name;
+  [ ] Check item is public: pub fn, pub struct
+  [ ] Check path is correct: crate::, super::, self::
+  [ ] Check use statement syntax
+#+END_EXAMPLE
+
+** Slow compilation
+#+BEGIN_EXAMPLE
+Fixes:
+  [ ] Use cargo check instead of cargo build
+  [ ] Enable incremental compilation (default)
+  [ ] Use cargo watch for auto-rebuild
+  [ ] Consider splitting into workspace crates
+#+END_EXAMPLE
+
+* Nuclear Options (When All Else Fails)
+
+#+BEGIN_SRC bash
+# Clear all build artifacts
+cargo clean
+
+# Update all dependencies
+cargo update
+
+# Remove Cargo.lock and rebuild
+rm Cargo.lock
+cargo build
+
+# Check for conflicting dependencies
+cargo tree
+
+# Rebuild with verbose output
+cargo build -v
+#+END_SRC
+
+* Rubber Duck Debugging Checklist
+
+When completely stuck, explain OUT LOUD:
+
+#+BEGIN_EXAMPLE
+[ ] What is this code supposed to do?
+[ ] What is it actually doing?
+[ ] What did I expect on this line?
+[ ] What types are involved?
+[ ] Who owns this data?
+[ ] How long do these references live?
+[ ] What's different from working code?
+#+END_EXAMPLE
+
+The act of explaining often reveals the bug!
+
+* Emergency Reference Card
+
+#+BEGIN_EXAMPLE
+┌────────────────────────────────────────────────────────────────┐
+│                    WHEN COMPLETELY STUCK                       │
+├────────────────────────────────────────────────────────────────┤
+│ 1. cargo check        - Fast error check                       │
+│ 2. Read FULL error    - Including help: and note:              │
+│ 3. rustc --explain    - Explain error code                     │
+│ 4. Comment out code   - Isolate the problem                    │
+│ 5. dbg!(value)        - Print values                           │
+│ 6. cargo clean        - Fresh build                            │
+│ 7. Take a break       - Fresh eyes help                        │
+│ 8. Ask for help       - With minimal reproduction              │
+└────────────────────────────────────────────────────────────────┘
+#+END_EXAMPLE

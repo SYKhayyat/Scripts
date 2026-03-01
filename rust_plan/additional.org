@@ -1,0 +1,2853 @@
+#+TITLE: Nexus Quick Reference
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:2 num:nil
+
+    Rust Syntax Quick Reference
+
+** Variables and Types
+
+#+BEGIN_EXAMPLE
+let x = 5; // Immutable
+let mut y = 5; // Mutable
+const MAX: u32 = 100; // Constant
+
+let s: &str = "hello"; // String slice
+let s: String = String::from("hello"); // Owned string
+let s = "hello".to_string(); // Also owned string
+
+let v: Vec<i32> = Vec::new(); // Empty vector
+let v = vec![1, 2, 3]; // Vector with values
+
+let m: HashMap<K, V> = HashMap::new();
+let s: HashSet<T> = HashSet::new();
+#+END_EXAMPLE
+
+** Functions
+
+#+BEGIN_EXAMPLE
+fn name(param: Type) -> ReturnType {
+value // No semicolon = return
+}
+
+fn borrow(s: &str) { } // Immutable borrow
+fn mutate(s: &mut String) { } // Mutable borrow
+fn consume(s: String) { } // Takes ownership
+
+impl MyStruct {
+fn new() -> Self { } // Constructor
+fn method(&self) { } // Read self
+fn mutate(&mut self) { } // Modify self
+fn consume(self) -> Self { } // Builder pattern
+}
+#+END_EXAMPLE
+
+** Control Flow
+
+#+BEGIN_EXAMPLE
+// If expression
+let result = if condition { a } else { b };
+
+// Match
+match value {
+Pattern => expression,
+Pattern if guard => expression,
+_ => default,
+}
+
+// Loops
+for item in collection { }
+for (i, item) in collection.iter().enumerate() { }
+for i in 0..10 { } // 0 to 9
+for i in 0..=10 { } // 0 to 10
+
+while condition { }
+
+loop {
+break value; // Return value from loop
+}
+#+END_EXAMPLE
+
+** Option and Result
+
+#+BEGIN_EXAMPLE
+// Option
+Some(value)
+None
+
+option.unwrap() // Panic if None
+option.unwrap_or(default) // Default if None
+option.map(|x| transform(x)) // Transform inner
+option? // Return None early
+
+// Result
+Ok(value)
+Err(error)
+
+result.unwrap() // Panic if Err
+result? // Return Err early
+result.map_err(|e| new_e) // Transform error
+#+END_EXAMPLE
+
+** Structs and Enums
+
+#+BEGIN_EXAMPLE
+#[derive(Debug, Clone, PartialEq)]
+struct Package {
+name: String,
+version: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+enum Backend {
+Apt,
+Pacman,
+Github { url: String },
+}
+
+impl Package {
+fn new(name: &str) -> Self {
+Self { name: name.to_string(), version: None }
+}
+}
+#+END_EXAMPLE
+
+** Traits
+
+#+BEGIN_EXAMPLE
+trait PackageManager {
+fn name(&self) -> &str;
+fn install(&self, pkgs: &[String]) -> Result<(), Error>;
+}
+
+impl PackageManager for AptManager {
+fn name(&self) -> &str { "apt" }
+fn install(&self, pkgs: &[String]) -> Result<(), Error> {
+// implementation
+}
+}
+
+// Trait objects
+let managers: Vec<Box<dyn PackageManager>> = vec![];
+#+END_EXAMPLE
+
+** Iterators
+
+#+BEGIN_EXAMPLE
+collection.iter() // Borrow elements
+collection.iter_mut() // Mutably borrow
+collection.into_iter() // Take ownership
+
+.map(|x| transform(x)) // Transform each
+.filter(|x| predicate(x)) // Keep matching
+.filter_map(|x| option) // Filter and transform
+.collect::<Vec<_>>() // Gather into collection
+.count() // Count elements
+.find(|x| predicate(x)) // First matching
+.any(|x| predicate(x)) // Any match?
+.all(|x| predicate(x)) // All match?
+.fold(init, |acc, x| combine)// Reduce
+#+END_EXAMPLE
+
+** Error Handling
+
+#+BEGIN_EXAMPLE
+// With thiserror
+#[derive(thiserror::Error, Debug)]
+enum MyError {
+#[error("IO error: {0}")]
+Io(#[from] std::io::Error),
+
+text
+
+#[error("Parse error at line {line}")]
+Parse { line: usize },
+
+}
+
+// With anyhow
+use anyhow::{Result, Context};
+
+fn load() -> Result<Config> {
+let content = fs::read_to_string(path)
+.context("Failed to read config")?;
+Ok(parse(content)?)
+}
+#+END_EXAMPLE
+
+** Async
+
+#+BEGIN_EXAMPLE
+async fn fetch() -> Result<Data> {
+let result = some_async_op().await?;
+Ok(result)
+}
+
+#[tokio::main]
+async fn main() {
+let result = fetch().await;
+}
+
+// Concurrent
+let (a, b, c) = tokio::join!(fut_a, fut_b, fut_c);
+
+// Parallel with spawn
+let handle = tokio::spawn(async { work() });
+let result = handle.await?;
+#+END_EXAMPLE
+
+    Cargo Commands
+
+Command	Purpose
+cargo new name	Create project
+cargo build	Compile debug
+cargo build --release	Compile optimized
+cargo run	Build and run
+cargo run -- args	Run with arguments
+cargo check	Fast compile check
+cargo test	Run tests
+cargo test name	Run matching tests
+cargo doc --open	Generate docs
+cargo clippy	Lint code
+cargo fmt	Format code
+cargo add crate	Add dependency
+cargo update	Update dependencies
+
+    Common Patterns
+
+** Constructor
+
+#+BEGIN_EXAMPLE
+impl Config {
+pub fn new() -> Self {
+Self::default()
+}
+
+text
+
+pub fn from_file(path: &Path) -> Result<Self> {
+    let content = fs::read_to_string(path)?;
+    let config = toml::from_str(&content)?;
+    Ok(config)
+}
+
+}
+#+END_EXAMPLE
+
+** Builder
+
+#+BEGIN_EXAMPLE
+impl Package {
+pub fn new(name: &str) -> Self { ... }
+
+text
+
+pub fn version(mut self, v: &str) -> Self {
+    self.version = Some(v.to_string());
+    self
+}
+
+pub fn installed(mut self) -> Self {
+    self.installed = true;
+    self
+}
+
+}
+
+// Usage
+let pkg = Package::new("vim").version("9.0").installed();
+#+END_EXAMPLE
+
+** Entry API for HashMap
+
+#+BEGIN_EXAMPLE
+// Insert if missing
+map.entry(key).or_insert(default);
+
+// Insert with computation
+map.entry(key).or_insert_with(|| compute());
+
+// Modify or insert
+map.entry(key)
+.and_modify(|v| *v += 1)
+.or_insert(1);
+#+END_EXAMPLE
+
+** Parallel Collection
+
+#+BEGIN_EXAMPLE
+let handles: Vec<_> = items.iter()
+.map(|item| {
+let item = item.clone();
+tokio::spawn(async move {
+process(item).await
+})
+})
+.collect();
+
+let results: Vec<_> = futures::future::join_all(handles)
+.await
+.into_iter()
+.filter_map(|r| r.ok())
+.collect();
+#+END_EXAMPLE
+
+    Module Declarations
+
+#+BEGIN_EXAMPLE
+// In lib.rs or main.rs
+mod config; // Loads config.rs or config/mod.rs
+pub mod backends; // Public module
+
+// In backends/mod.rs
+mod apt;
+mod pacman;
+pub use apt::AptManager;
+pub use pacman::PacmanManager;
+
+// Using modules
+use crate::config::Config;
+use crate::backends::AptManager;
+use crate::prelude::*;
+#+END_EXAMPLE
+
+    Testing
+
+#+BEGIN_EXAMPLE
+#[cfg(test)]
+mod tests {
+use super::*;
+
+text
+
+#[test]
+fn test_something() {
+    assert!(true);
+    assert_eq!(a, b);
+    assert_ne!(a, b);
+}
+
+#[test]
+fn test_result() -> Result<()> {
+    let value = might_fail()?;
+    assert_eq!(value, expected);
+    Ok(())
+}
+
+#[test]
+#[should_panic(expected = "message")]
+fn test_panic() {
+    panic!("message");
+}
+
+#[tokio::test]
+async fn test_async() {
+    let result = async_fn().await;
+    assert!(result.is_ok());
+}
+
+}
+#+END_EXAMPLE
+
+    Derive Macros
+
+Derive	Purpose
+Debug	Enable {:?} formatting
+Clone	Enable .clone()
+Copy	Implicit copy (small types)
+PartialEq	Enable == comparison
+Eq	Full equality (with PartialEq)
+Hash	Enable use as HashMap key
+Default	Enable Default::default()
+Serialize	Serde serialization
+Deserialize	Serde deserialization
+Parser	Clap CLI parsing
+Subcommand	Clap subcommands
+Error	thiserror error type
+
+    Key Crate Usage
+
+** Clap CLI
+
+#+BEGIN_EXAMPLE
+#[derive(Parser)]
+#[command(name = "nexus", version, about)]
+struct Cli {
+#[arg(short, long, global = true)]
+dry_run: bool,
+
+text
+
+#[command(subcommand)]
+command: Commands,
+
+}
+
+#[derive(Subcommand)]
+enum Commands {
+Sync { #[arg(short)] yes: bool },
+Clean,
+}
+#+END_EXAMPLE
+
+** Serde + TOML
+
+#+BEGIN_EXAMPLE
+#[derive(Deserialize)]
+#[serde(default)]
+struct Config {
+#[serde(rename = "enabled_backends")]
+backends: Backends,
+
+text
+
+#[serde(default)]
+verbose: bool,
+
+}
+#+END_EXAMPLE
+
+** Reqwest HTTP
+
+#+BEGIN_EXAMPLE
+let client = reqwest::Client::new();
+let response = client
+.get(url)
+.header("User-Agent", "nexus")
+.send()
+.await?;
+
+let data: MyStruct = response.json().await?;
+#+END_EXAMPLE
+
+** Tracing Logging
+
+#+BEGIN_EXAMPLE
+use tracing::{info, debug, warn, error};
+
+info!("Starting sync");
+debug!(package = %name, "Processing");
+warn!("Backend unavailable: {}", name);
+error!(?err, "Failed to install");
+#+END_EXAMPLE
+
+Keep this reference handy during daily development!
+
+Now I'll create the Project Specification document:
+
+#+TITLE: Nexus Project Specification
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:3 num:t
+
+    Executive Summary
+
+Nexus is a fast, parallel, declarative package manager written in Rust. It synchronizes packages across multiple backends from simple text configuration files, matching all features of LiNix while leveraging Rust's performance and safety guarantees.
+
+    Project Goals
+
+** Primary Goals
+
+    Feature Parity with LiNix: Support all 19 backends, all configuration options, all commands
+    Performance: Match or exceed LiNix speed through parallelism and efficient implementation
+    Safety: No crashes, no data corruption, graceful error handling
+    Usability: Clear output, helpful errors, intuitive interface
+
+** Success Criteria
+Criterion	Target
+All LiNix commands implemented	100%
+All backends supported	19/19
+Startup time	< 50ms
+Parallel sync speedup	> 2x vs sequential
+Test coverage	> 80% critical paths
+Zero Clippy warnings	Yes
+
+    Functional Requirements
+
+** FR-1: Command Line Interface
+
+*** FR-1.1: Commands
+Command	Description	Priority
+sync	Install missing packages, optionally remove untracked	Must
+clean	Remove packages not in configuration	Must
+unmanaged	List packages not in configuration	Must
+orphans	Remove orphaned dependencies	Must
+help	Show help information	Must
+version	Show version information	Must
+
+*** FR-1.2: Global Flags
+Flag	Short	Description	Priority
+--dry-run	-n	Show what would happen without changes	Must
+--yes	-y	Skip confirmation prompts	Must
+--verbose	-v	Verbose output (countable)	Must
+--backend	-b	Operate on specific backend only	Must
+--config	-c	Specify config file path	Must
+--groups-dir	-g	Specify groups directory path	Must
+--remove-bloatware	-r	Also remove bloatware packages	Must
+--progress		Show progress indicators	Should
+
+** FR-2: Configuration
+
+*** FR-2.1: Main Config File (config.toml)
+Section	Description	Priority
+[enabled_backends]	List of backends to use	Must
+[hostname_groups.*]	Machine-specific packages	Must
+[groups.*.before_install]	Pre-install hooks	Should
+[groups.*.after_install]	Post-install hooks	Should
+
+*** FR-2.2: Group Files (groups/*.txt)
+Feature	Description	Priority
+Section headers	[backend] syntax	Must
+Package names	One per line	Must
+Comments	Lines starting with #	Must
+GitHub syntax	name = url {"type": "..."}	Must
+Blank lines	Ignored	Must
+
+*** FR-2.3: Special Files
+File	Description	Priority
+bloatware.txt	Packages to remove	Must
+githubInstalled.txt	Auto-generated version tracking	Must
+
+** FR-3: Backends
+
+*** FR-3.1: System Package Managers
+Backend	Command	Distributions	Priority
+apt	apt	Debian, Ubuntu	Must
+pacman	pacman	Arch, Manjaro	Must
+dnf	dnf	Fedora, RHEL	Must
+zypper	zypper	openSUSE	Should
+apk	apk	Alpine	Should
+
+*** FR-3.2: Universal Package Managers
+Backend	Command	Priority
+flatpak	flatpak	Must
+snap	snap	Should
+brew	brew	Should
+
+*** FR-3.3: Language Package Managers
+Backend	Command	Language	Priority
+pip	pip/pip3	Python	Must
+pipx	pipx	Python apps	Must
+poetry	poetry	Python	Should
+npm	npm	Node.js	Must
+yarn	yarn	Node.js	Should
+bun	bun	JavaScript	Should
+cargo	cargo	Rust	Must
+gem	gem	Ruby	Should
+composer	composer	PHP	Should
+go	go	Go	Should
+
+*** FR-3.4: Special Backends
+Backend	Description	Priority
+github	Direct GitHub release downloads	Must
+
+** FR-4: GitHub Releases
+
+*** FR-4.1: Supported Asset Types
+Type	Extension	Installation Method	Priority
+deb	.deb	dpkg -i	Must
+rpm	.rpm	rpm -i	Should
+appimage	.AppImage	chmod +x, copy	Must
+tarball	.tar.gz	Extract, copy binary	Must
+zip	.zip	Extract, copy binary	Should
+binary	(none)	chmod +x, copy	Should
+
+*** FR-4.2: GitHub Features
+Feature	Description	Priority
+Auto-detect latest	Query releases API	Must
+Architecture matching	Select correct asset	Must
+Version tracking	Track installed versions	Must
+Update detection	Compare versions	Must
+Custom install path	Configurable via "path"	Must
+Rate limit handling	Support GITHUB_TOKEN	Must
+
+** FR-5: Operations
+
+*** FR-5.1: Sync Operation
+Step	Description	Priority
+Load config	Parse config.toml	Must
+Load groups	Parse all group files	Must
+Query backends	Get installed packages	Must
+Compute diff	Determine install/remove	Must
+Display plan	Show what will happen	Must
+Confirm	Ask user unless --yes	Must
+Execute	Install/remove packages	Must
+Report	Show summary	Must
+
+*** FR-5.2: Clean Operation
+Step	Description	Priority
+Query backends	Get installed packages	Must
+Load declared	Get config packages	Must
+Compute unmanaged	installed - declared	Must
+Display	Show unmanaged packages	Must
+Confirm	Ask before removing	Must
+Execute	Remove packages	Must
+
+*** FR-5.3: Orphans Operation
+Step	Description	Priority
+Query backends	Get orphan packages	Must
+Display	Show orphans	Must
+Confirm	Ask before removing	Must
+Execute	Remove orphans	Must
+
+    Non-Functional Requirements
+
+** NFR-1: Performance
+Requirement	Target
+Startup time	< 50ms for --help, --version
+Query parallelism	Concurrent backend queries
+Download parallelism	Concurrent GitHub downloads
+Memory usage	< 100MB typical operation
+Binary size	< 10MB stripped
+
+** NFR-2: Reliability
+Requirement	Description
+Crash resistance	No panics from user input
+Partial failure	Continue on single backend failure
+Interrupt handling	Graceful Ctrl+C handling
+Atomic operations	No partial state on failure
+
+** NFR-3: Usability
+Requirement	Description
+Error messages	Clear, actionable, with context
+Progress indication	Show activity during long ops
+Color output	Distinguish success/failure
+Dry run	Preview all changes safely
+
+** NFR-4: Maintainability
+Requirement	Description
+Code documentation	All public APIs documented
+Test coverage	Critical paths tested
+Modular design	Clear separation of concerns
+Consistent style	rustfmt and clippy clean
+
+    Architecture Overview
+
+** Component Diagram
+
+#+BEGIN_EXAMPLE
+┌─────────────────────────────────────────────────────┐
+│ CLI Layer │
+│ (clap, commands) │
+└─────────────────────────┬───────────────────────────┘
+│
+┌─────────────────────────▼───────────────────────────┐
+│ Config Layer │
+│ (toml, serde, validation) │
+└─────────────────────────┬───────────────────────────┘
+│
+┌─────────────────────────▼───────────────────────────┐
+│ Sync Engine │
+│ (diff, plan, execute, report) │
+└───────────┬─────────────────────────────┬───────────┘
+│ │
+┌───────────▼───────────┐ ┌─────────────▼───────────┐
+│ Backend Registry │ │ GitHub Client │
+│ (trait, managers) │ │ (api, download) │
+└───────────┬───────────┘ └─────────────────────────┘
+│
+┌───────────▼───────────┐
+│ Command Executor │
+│ (process, sudo, dry) │
+└───────────────────────┘
+#+END_EXAMPLE
+
+** Data Flow
+
+#+BEGIN_EXAMPLE
+config.toml ──┐
+│
+groups/*.txt ─┼──▶ Parser ──▶ Declared Packages
+│
+bloatware.txt─┘
+│
+▼
+Backends ──▶ Query ──▶ Installed Packages ──▶ Diff ──▶ Plan
+│
+▼
+User Confirm ◀── Display Plan
+│
+▼
+Execute Plan ──▶ Report
+#+END_EXAMPLE
+
+    File Formats
+
+** config.toml
+
+#+BEGIN_EXAMPLE
+[enabled_backends]
+backends = ["apt", "pip", "npm", "cargo", "github"]
+
+[hostname_groups.laptop]
+packages = ["tlp", "powertop"]
+
+[hostname_groups.desktop]
+packages = ["nvidia-driver", "steam"]
+
+[groups.dev.before_install]
+docker = "sudo systemctl enable docker"
+
+[groups.dev.after_install]
+docker = "sudo usermod -aG docker $USER"
+#+END_EXAMPLE
+
+** Group File
+
+#+BEGIN_EXAMPLE
+Comment line
+
+[apt]
+vim
+git
+curl
+
+[pip]
+requests
+flask
+
+[github]
+lazygit = https://github.com/jesseduffield/lazygit {"type": "tarball"}
+delta = https://github.com/dandavison/delta {"type": "deb"}
+#+END_EXAMPLE
+
+** githubInstalled.txt
+
+#+BEGIN_EXAMPLE
+lazygit=0.40.2
+delta=0.16.5
+bat=0.24.0
+#+END_EXAMPLE
+
+    Error Handling Strategy
+
+** Error Categories
+Category	Examples	Response
+Config errors	Missing file, parse error	Fail with helpful message
+Backend errors	Command failed, package not found	Report, continue others
+Network errors	GitHub API failure	Retry, then report
+Permission errors	Sudo failed	Clear message, suggest fix
+User interrupt	Ctrl+C	Clean up, exit gracefully
+
+** Error Message Format
+
+#+BEGIN_EXAMPLE
+Error: Failed to parse groups/dev.txt
+--> line 15
+|
+15 | [apt
+| ^ expected closing bracket ']'
+|
+= help: Section headers must be formatted as [backend]
+#+END_EXAMPLE
+
+    Testing Strategy
+
+** Unit Tests
+Component	Coverage Target
+Config parsing	All valid and invalid cases
+Group parsing	All line types, edge cases
+Diff calculation	All combinations
+Backend parsers	Real output fixtures
+
+** Integration Tests
+Scenario	Description
+Full sync	Config to completion with mocks
+Partial failure	One backend fails
+Dry run	Verify no changes
+Empty config	Graceful handling
+
+** System Tests
+Scenario	Environment
+Real apt	Debian/Ubuntu VM
+Real pacman	Arch VM
+Real dnf	Fedora VM
+GitHub downloads	Real network
+
+    Milestones
+
+Milestone	Description	Target Day
+M1	Rust fundamentals complete	Day 24
+M2	Project structure, testing setup	Day 48
+M3	CLI and config parsing complete	Day 66
+M4	Basic sync working (apt, pip)	Day 96
+M5	Async parallelism working	Day 108
+M6	GitHub downloads complete	Day 120
+M7	All features implemented	Day 144
+M8	All backends implemented	Day 162
+M9	Performance optimized	Day 168
+M10	v1.0 released	Day 180
+
+    Glossary
+
+Term	Definition
+Backend	A package manager that Nexus interfaces with
+Declared packages	Packages listed in configuration
+Installed packages	Packages currently on the system
+Unmanaged packages	Installed but not declared
+Orphan packages	Installed as dependencies, no longer needed
+Bloatware	Packages explicitly marked for removal
+Group file	A .txt file listing packages by backend
+Hook	Command to run before/after package install
+Asset	A downloadable file from a GitHub release
+Sync	The operation of aligning installed with declared
+
+This specification defines what Nexus must do. Refer to it when making design decisions.
+
+Now I'll create the Cargo.toml starter:
+
+#+TITLE: Nexus Cargo.toml Starter
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:2 num:nil
+
+    Complete Cargo.toml
+
+Copy this entire file as your starting Cargo.toml. All dependencies are included with explanatory comments.
+
+#+BEGIN_EXAMPLE
+[package]
+name = "nexus"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name your.email@example.com"]
+description = "A fast, parallel, declarative package manager"
+license = "MIT"
+repository = "https://github.com/yourusername/nexus"
+readme = "README.md"
+keywords = ["package-manager", "cli", "linux", "declarative"]
+categories = ["command-line-utilities", "development-tools"]
+rust-version = "1.70"
+See more keys and their definitions at
+https://doc.rust-lang.org/cargo/reference/manifest.html
+============================================================================
+DEPENDENCIES
+============================================================================
+
+[dependencies]
+----------------------------------------------------------------------------
+CLI Parsing
+----------------------------------------------------------------------------
+clap: Command Line Argument Parser
+- derive: Enable #[derive(Parser)] macros
+- cargo: Read version/description from Cargo.toml
+- env: Support environment variable fallbacks
+
+clap = { version = "4", features = ["derive", "cargo", "env"] }
+----------------------------------------------------------------------------
+Serialization / Configuration
+----------------------------------------------------------------------------
+serde: Serialization framework
+- derive: Enable #[derive(Serialize, Deserialize)]
+
+serde = { version = "1", features = ["derive"] }
+toml: TOML file parsing (for config.toml)
+
+toml = "0.8"
+serde_json: JSON parsing (for GitHub API responses)
+
+serde_json = "1"
+----------------------------------------------------------------------------
+Async Runtime
+----------------------------------------------------------------------------
+tokio: Async runtime
+- full: Include all features (rt-multi-thread, io, fs, time, sync, macros)
+
+tokio = { version = "1", features = ["full"] }
+futures: Future utilities
+- Provides join_all, select, stream utilities
+
+futures = "0.3"
+async-trait: Enable async methods in traits
+Required because Rust doesn't natively support async trait methods
+
+async-trait = "0.1"
+----------------------------------------------------------------------------
+HTTP Client
+----------------------------------------------------------------------------
+reqwest: HTTP client for GitHub API
+- json: Enable .json() response parsing
+- stream: Enable streaming downloads
+
+reqwest = { version = "0.12", features = ["json", "stream"] }
+----------------------------------------------------------------------------
+Error Handling
+----------------------------------------------------------------------------
+anyhow: Flexible error handling for applications
+Use for main application code
+
+anyhow = "1"
+thiserror: Derive macro for custom error types
+Use for library/domain error definitions
+
+thiserror = "1"
+----------------------------------------------------------------------------
+Logging / Tracing
+----------------------------------------------------------------------------
+tracing: Structured logging and diagnostics
+
+tracing = "0.1"
+tracing-subscriber: Configure tracing output
+- env-filter: Enable RUST_LOG environment variable
+
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+----------------------------------------------------------------------------
+User Interface
+----------------------------------------------------------------------------
+colored: Terminal colors for output
+
+colored = "2"
+indicatif: Progress bars and spinners
+
+indicatif = "0.17"
+dialoguer: User prompts and confirmations (optional, for interactive mode)
+dialoguer = "0.11"
+----------------------------------------------------------------------------
+Utilities
+----------------------------------------------------------------------------
+semver: Semantic version parsing and comparison
+
+semver = "1"
+tar: Tarball extraction
+
+tar = "0.4"
+flate2: Gzip compression/decompression
+
+flate2 = "1"
+zip: ZIP archive extraction
+
+zip = "0.6"
+tempfile: Temporary files and directories
+
+tempfile = "3"
+dirs: Standard directory paths (home, config, etc.)
+
+dirs = "5"
+gethostname: Get system hostname
+
+gethostname = "0.4"
+ctrlc: Handle Ctrl+C signals
+
+ctrlc = "3"
+walkdir: Recursive directory traversal
+
+walkdir = "2"
+which: Find executables in PATH (for backend detection)
+
+which = "6"
+chrono: Date and time handling
+
+chrono = "0.4"
+once_cell: Lazy static initialization
+
+once_cell = "1"
+regex: Regular expressions (if needed for parsing)
+
+regex = "1"
+----------------------------------------------------------------------------
+Optional: Additional utilities you might want
+----------------------------------------------------------------------------
+shellexpand: Expand ~ and environment variables in paths
+shellexpand = "3"
+strsim: String similarity for "did you mean" suggestions
+strsim = "0.11"
+============================================================================
+DEVELOPMENT DEPENDENCIES
+============================================================================
+
+[dev-dependencies]
+tempfile: Also needed in tests for temp directories
+
+tempfile = "3"
+mockall: Mocking framework for tests
+
+mockall = "0.12"
+assert_cmd: Test CLI applications
+
+assert_cmd = "2"
+predicates: Assertions for assert_cmd
+
+predicates = "3"
+tokio-test: Async test utilities
+
+tokio-test = "0.4"
+============================================================================
+BUILD PROFILES
+============================================================================
+
+[profile.dev]
+Fast compilation for development
+
+opt-level = 0
+debug = true
+
+[profile.release]
+Optimized release build
+
+opt-level = 3
+lto = true # Link-time optimization
+strip = true # Strip symbols for smaller binary
+codegen-units = 1 # Single codegen unit for better optimization
+panic = "abort" # Smaller binary, no unwinding
+
+[profile.test]
+Test profile inherits from dev
+
+opt-level = 0
+debug = true
+Profiling profile: release optimizations with debug symbols
+
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = false
+============================================================================
+FEATURES (Optional)
+============================================================================
+
+[features]
+default = []
+Enable all backends (useful for full builds)
+
+all-backends = []
+Minimal build with only core backends
+
+minimal = []
+============================================================================
+BINARY
+============================================================================
+
+[[bin]]
+name = "nexus"
+path = "src/main.rs"
+============================================================================
+LIBRARY (Optional - if you want nexus usable as a library)
+============================================================================
+
+[lib]
+name = "nexus"
+path = "src/lib.rs"
+#+END_EXAMPLE
+
+    Dependency Summary Table
+
+Crate	Version	Purpose	When Added
+clap	4	CLI parsing	Day 49
+serde	1	Serialization	Day 55
+toml	0.8	Config parsing	Day 55
+serde_json	1	GitHub API	Day 110
+tokio	1	Async runtime	Day 97
+futures	0.3	Future utilities	Day 104
+async-trait	0.1	Async traits	Day 100
+reqwest	0.12	HTTP client	Day 109
+anyhow	1	App errors	Day 22
+thiserror	1	Error derives	Day 23
+tracing	0.1	Logging	Day 133
+tracing-subscriber	0.3	Log output	Day 133
+colored	2	Terminal colors	Day 2
+indicatif	0.17	Progress bars	Day 106
+semver	1	Version compare	Day 117
+tar	0.4	Tarball extract	Day 114
+flate2	1	Gzip decompress	Day 114
+zip	0.6	ZIP extract	Day 114
+tempfile	3	Temp files	Day 45
+dirs	5	Standard dirs	Day 59
+gethostname	0.4	Hostname	Day 130
+ctrlc	3	Signal handling	Day 136
+walkdir	2	Dir traversal	Day 64
+which	6	Find executables	Day 73
+chrono	0.4	Date/time	As needed
+once_cell	1	Lazy statics	As needed
+regex	1	Regex parsing	As needed
+
+    Adding Dependencies Incrementally
+
+You don't need all dependencies from Day 1. Add them as needed:
+
+** Phase 0 (Days 1-24)
+
+#+BEGIN_EXAMPLE
+[dependencies]
+colored = "2"
+#+END_EXAMPLE
+
+** Phase 1 (Days 25-48)
+
+#+BEGIN_EXAMPLE
+[dependencies]
+colored = "2"
+thiserror = "1"
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3"
+#+END_EXAMPLE
+
+** Phase 2 Start (Days 49-66)
+
+#+BEGIN_EXAMPLE
+[dependencies]
+colored = "2"
+thiserror = "1"
+anyhow = "1"
+clap = { version = "4", features = ["derive", "cargo"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+dirs = "5"
+walkdir = "2"
+#+END_EXAMPLE
+
+** Phase 2 Complete (Days 67-96)
+
+Add remaining Phase 2 dependencies: which, tempfile, etc.
+
+** Phase 3 (Days 97-144)
+
+Add async and HTTP: tokio, futures, async-trait, reqwest, etc.
+
+** Phase 4 (Days 145-180)
+
+Add any remaining utilities needed for polish.
+
+    Notes on Versions
+
+    All versions shown are current as of 2024
+    Use cargo update periodically to get patches
+    Major version changes may require code updates
+    Check docs.rs for migration guides when updating
+
+Copy this Cargo.toml to start your project, then add dependencies incrementally as you reach each phase.
+
+Now I'll create the Testing Guide:
+
+#+TITLE: Nexus Testing Guide
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:3 num:t
+
+    Testing Philosophy
+
+Testing is not optional. A package manager modifies system state—bugs can break systems. Comprehensive testing builds confidence that Nexus works correctly.
+
+** Testing Pyramid
+
+#+BEGIN_EXAMPLE
+/
+/ \ End-to-End Tests (few, slow, high confidence)
+/----
+/ \ Integration Tests (some, medium speed)
+/--------\
+/ \ Unit Tests (many, fast, focused)
+
+#+END_EXAMPLE
+
+** Testing Principles
+
+    Test behavior, not implementation: Tests should pass even if internals change
+    Test edge cases: Empty inputs, missing files, network failures
+    Test error paths: Verify errors are correct, not just that code doesn't crash
+    Use mocks wisely: Mock external systems, not your own code
+    Keep tests fast: Slow tests don't get run
+
+    Unit Testing
+
+** Basic Structure
+
+#+BEGIN_EXAMPLE
+// In src/config/parser.rs
+
+pub fn parse_section_header(line: &str) -> Option<&str> {
+let trimmed = line.trim();
+if trimmed.starts_with('[') && trimmed.ends_with(']') {
+Some(&trimmed[1..trimmed.len()-1])
+} else {
+None
+}
+}
+
+#[cfg(test)]
+mod tests {
+use super::*;
+
+text
+
+#[test]
+fn test_valid_section() {
+    assert_eq!(parse_section_header("[apt]"), Some("apt"));
+}
+
+#[test]
+fn test_with_whitespace() {
+    assert_eq!(parse_section_header("  [apt]  "), Some("apt"));
+}
+
+#[test]
+fn test_not_section() {
+    assert_eq!(parse_section_header("apt"), None);
+}
+
+#[test]
+fn test_empty_section() {
+    assert_eq!(parse_section_header("[]"), Some(""));
+}
+
+#[test]
+fn test_unclosed() {
+    assert_eq!(parse_section_header("[apt"), None);
+}
+
+}
+#+END_EXAMPLE
+
+** Testing with Results
+
+#+BEGIN_EXAMPLE
+#[test]
+fn test_parse_success() -> Result<(), ParseError> {
+let config = parse_config(VALID_CONFIG)?;
+assert_eq!(config.backends.len(), 3);
+Ok(())
+}
+
+#[test]
+fn test_parse_failure() {
+let result = parse_config(INVALID_CONFIG);
+assert!(result.is_err());
+
+text
+
+let err = result.unwrap_err();
+assert!(matches!(err, ParseError::InvalidSyntax { .. }));
+
+}
+
+#[test]
+fn test_error_contains_line_number() {
+let result = parse_config("invalid content\n[apt\nvim");
+let err = result.unwrap_err();
+assert!(err.to_string().contains("line 2"));
+}
+#+END_EXAMPLE
+
+** Testing Options
+
+#+BEGIN_EXAMPLE
+#[test]
+fn test_find_package_exists() {
+let packages = vec![Package::new("vim"), Package::new("git")];
+let found = find_package(&packages, "vim");
+assert!(found.is_some());
+assert_eq!(found.unwrap().name, "vim");
+}
+
+#[test]
+fn test_find_package_missing() {
+let packages = vec![Package::new("vim")];
+let found = find_package(&packages, "emacs");
+assert!(found.is_none());
+}
+#+END_EXAMPLE
+
+    Test Fixtures
+
+** Creating Fixtures
+
+Create test data files in tests/fixtures/:
+
+#+BEGIN_EXAMPLE
+tests/
+├── fixtures/
+│ ├── config/
+│ │ ├── valid_full.toml
+│ │ ├── valid_minimal.toml
+│ │ ├── invalid_syntax.toml
+│ │ └── missing_backends.toml
+│ ├── groups/
+│ │ ├── base.txt
+│ │ ├── dev.txt
+│ │ └── github.txt
+│ └── backend_output/
+│ ├── apt_list_installed.txt
+│ ├── pacman_q.txt
+│ └── pip_freeze.txt
+#+END_EXAMPLE
+
+** Loading Fixtures
+
+#+BEGIN_EXAMPLE
+// In tests/common/mod.rs
+
+use std::path::PathBuf;
+
+pub fn fixture_path(name: &str) -> PathBuf {
+let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+path.push("tests/fixtures");
+path.push(name);
+path
+}
+
+pub fn load_fixture(name: &str) -> String {
+std::fs::read_to_string(fixture_path(name))
+.expect(&format!("Failed to load fixture: {}", name))
+}
+
+// Usage in tests:
+#[test]
+fn test_with_fixture() {
+let content = common::load_fixture("config/valid_full.toml");
+let config = parse_config(&content).unwrap();
+// assertions...
+}
+#+END_EXAMPLE
+
+** Embedded Fixtures
+
+#+BEGIN_EXAMPLE
+const VALID_CONFIG: &str = r#"
+[enabled_backends]
+backends = ["apt", "pip"]
+"#;
+
+const APT_OUTPUT: &str = include_str!("fixtures/backend_output/apt_list.txt");
+
+#[test]
+fn test_parse_apt_output() {
+let packages = parse_apt_list(APT_OUTPUT);
+assert!(!packages.is_empty());
+}
+#+END_EXAMPLE
+
+    Test Builders
+
+** Package Builder
+
+#+BEGIN_EXAMPLE
+// In tests/common/builders.rs
+
+pub struct PackageBuilder {
+name: String,
+version: Option<String>,
+installed: bool,
+backend: Option<Backend>,
+}
+
+impl PackageBuilder {
+pub fn new(name: &str) -> Self {
+Self {
+name: name.to_string(),
+version: None,
+installed: false,
+backend: None,
+}
+}
+
+text
+
+pub fn version(mut self, v: &str) -> Self {
+    self.version = Some(v.to_string());
+    self
+}
+
+pub fn installed(mut self) -> Self {
+    self.installed = true;
+    self
+}
+
+pub fn backend(mut self, b: Backend) -> Self {
+    self.backend = Some(b);
+    self
+}
+
+pub fn build(self) -> Package {
+    Package {
+        name: self.name,
+        version: self.version,
+        installed: self.installed,
+    }
+}
+
+}
+
+// Usage:
+#[test]
+fn test_with_builder() {
+let pkg = PackageBuilder::new("vim")
+.version("9.0")
+.installed()
+.build();
+
+text
+
+assert!(pkg.installed);
+
+}
+#+END_EXAMPLE
+
+** Config Builder
+
+#+BEGIN_EXAMPLE
+pub struct ConfigBuilder {
+backends: Vec<String>,
+dry_run: bool,
+verbose: bool,
+groups: HashMap<String, Vec<Package>>,
+}
+
+impl ConfigBuilder {
+pub fn new() -> Self {
+Self {
+backends: vec!["apt".to_string()],
+dry_run: false,
+verbose: false,
+groups: HashMap::new(),
+}
+}
+
+text
+
+pub fn backends(mut self, backends: &[&str]) -> Self {
+    self.backends = backends.iter().map(|s| s.to_string()).collect();
+    self
+}
+
+pub fn dry_run(mut self) -> Self {
+    self.dry_run = true;
+    self
+}
+
+pub fn with_group(mut self, name: &str, packages: Vec<Package>) -> Self {
+    self.groups.insert(name.to_string(), packages);
+    self
+}
+
+pub fn build(self) -> Config {
+    Config {
+        enabled_backends: self.backends,
+        dry_run: self.dry_run,
+        verbose: self.verbose,
+        // ...
+    }
+}
+
+}
+#+END_EXAMPLE
+
+    Mocking
+
+** Manual Mock Implementation
+
+#+BEGIN_EXAMPLE
+// Mock that implements PackageManager trait
+
+pub struct MockPackageManager {
+name: String,
+installed_packages: Vec<String>,
+install_should_fail: bool,
+install_calls: std::cell::RefCell<Vec<Vec<String>>>,
+}
+
+impl MockPackageManager {
+pub fn new(name: &str) -> Self {
+Self {
+name: name.to_string(),
+installed_packages: vec![],
+install_should_fail: false,
+install_calls: RefCell::new(vec![]),
+}
+}
+
+text
+
+pub fn with_installed(mut self, packages: Vec<String>) -> Self {
+    self.installed_packages = packages;
+    self
+}
+
+pub fn should_fail_install(mut self) -> Self {
+    self.install_should_fail = true;
+    self
+}
+
+pub fn get_install_calls(&self) -> Vec<Vec<String>> {
+    self.install_calls.borrow().clone()
+}
+
+}
+
+impl PackageManager for MockPackageManager {
+fn name(&self) -> &str {
+&self.name
+}
+
+text
+
+fn list_installed(&self) -> Result<Vec<String>> {
+    Ok(self.installed_packages.clone())
+}
+
+fn install(&self, packages: &[String]) -> Result<()> {
+    self.install_calls.borrow_mut().push(packages.to_vec());
+    
+    if self.install_should_fail {
+        Err(anyhow::anyhow!("Mock install failure"))
+    } else {
+        Ok(())
+    }
+}
+
+// ... other methods
+
+}
+
+// Usage:
+#[test]
+fn test_sync_installs_missing() {
+let mock = MockPackageManager::new("apt")
+.with_installed(vec!["vim".to_string()]);
+
+text
+
+let declared = vec!["vim".to_string(), "git".to_string()];
+
+sync(&mock, &declared).unwrap();
+
+let calls = mock.get_install_calls();
+assert_eq!(calls.len(), 1);
+assert_eq!(calls[0], vec!["git".to_string()]);
+
+}
+#+END_EXAMPLE
+
+** Using mockall Crate
+
+#+BEGIN_EXAMPLE
+use mockall::automock;
+
+#[automock]
+pub trait PackageManager {
+fn name(&self) -> &str;
+fn list_installed(&self) -> Result<Vec<String>>;
+fn install(&self, packages: &[String]) -> Result<()>;
+}
+
+#[test]
+fn test_with_mockall() {
+let mut mock = MockPackageManager::new();
+
+text
+
+mock.expect_name()
+    .returning(|| "apt");
+
+mock.expect_list_installed()
+    .returning(|| Ok(vec!["vim".to_string()]));
+
+mock.expect_install()
+    .withf(|pkgs| pkgs == &["git".to_string()])
+    .times(1)
+    .returning(|_| Ok(()));
+
+// Use mock in test...
+
+}
+#+END_EXAMPLE
+
+    Integration Testing
+
+** Test File Structure
+
+#+BEGIN_EXAMPLE
+// tests/sync_tests.rs
+
+mod common;
+
+use nexus::sync::perform_sync;
+use common::{MockPackageManager, ConfigBuilder};
+
+#[test]
+fn test_sync_full_flow() {
+// Setup
+let config = ConfigBuilder::new()
+.backends(&["apt"])
+.dry_run()
+.build();
+
+text
+
+let mock = MockPackageManager::new("apt")
+    .with_installed(vec!["vim".to_string()]);
+
+let declared = vec![
+    Package::new("vim"),
+    Package::new("git"),
+];
+
+// Execute
+let result = perform_sync(&config, &mock, &declared);
+
+// Verify
+assert!(result.is_ok());
+let summary = result.unwrap();
+assert_eq!(summary.installed, 1);
+assert_eq!(summary.skipped, 1);
+
+}
+#+END_EXAMPLE
+
+** Testing with Temp Directories
+
+#+BEGIN_EXAMPLE
+use tempfile::TempDir;
+
+#[test]
+fn test_config_loading() {
+// Create temp directory
+let temp = TempDir::new().unwrap();
+
+text
+
+// Create config file
+let config_path = temp.path().join("config.toml");
+std::fs::write(&config_path, r#"
+    [enabled_backends]
+    backends = ["apt"]
+"#).unwrap();
+
+// Create groups directory
+let groups_dir = temp.path().join("groups");
+std::fs::create_dir(&groups_dir).unwrap();
+std::fs::write(groups_dir.join("base.txt"), "[apt]\nvim\n").unwrap();
+
+// Test loading
+let config = load_config(&config_path).unwrap();
+assert_eq!(config.backends, vec!["apt"]);
+
+// Temp directory cleaned up automatically
+
+}
+#+END_EXAMPLE
+
+    Async Testing
+
+** Basic Async Tests
+
+#+BEGIN_EXAMPLE
+#[tokio::test]
+async fn test_async_function() {
+let result = fetch_releases("user/repo").await;
+assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_parallel_queries() {
+let results = query_all_backends(&backends).await;
+assert_eq!(results.len(), backends.len());
+}
+#+END_EXAMPLE
+
+** Testing with Timeouts
+
+#+BEGIN_EXAMPLE
+use tokio::time::{timeout, Duration};
+
+#[tokio::test]
+async fn test_with_timeout() {
+let result = timeout(
+Duration::from_secs(5),
+slow_operation()
+).await;
+
+text
+
+assert!(result.is_ok(), "Operation timed out");
+
+}
+#+END_EXAMPLE
+
+** Mocking Async Traits
+
+#+BEGIN_EXAMPLE
+use async_trait::async_trait;
+use mockall::automock;
+
+#[automock]
+#[async_trait]
+pub trait AsyncPackageManager {
+async fn list_installed(&self) -> Result<Vec<String>>;
+}
+
+#[tokio::test]
+async fn test_async_mock() {
+let mut mock = MockAsyncPackageManager::new();
+
+text
+
+mock.expect_list_installed()
+    .returning(|| Box::pin(async { Ok(vec!["vim".to_string()]) }));
+
+let result = mock.list_installed().await;
+assert!(result.is_ok());
+
+}
+#+END_EXAMPLE
+
+    Test Case Specifications
+
+** Config Parsing Tests
+Test Case	Input	Expected Output
+Valid minimal	Just [enabled_backends]	Success, defaults for rest
+Valid full	All sections	Success, all values parsed
+Missing backends	No [enabled_backends]	Error with helpful message
+Invalid TOML	Malformed syntax	Error with line number
+Empty file	""	Error or defaults
+Unknown section	[unknown]	Warning, continue
+Invalid backend	backends = ["invalid"]	Error listing valid options
+
+** Group File Tests
+Test Case	Input	Expected Output
+Valid simple	[apt]\nvim	{apt: [vim]}
+Multiple sections	[apt]...[pip]...	Both backends
+Comments	# comment\nvim	Comments ignored
+Blank lines	vim\n\ngit	Blanks ignored
+Package before section	vim\n[apt]	Error with line
+Unknown backend	[invalid]	Error/warning
+GitHub syntax	name = url {...}	GithubPackage
+Malformed GitHub	name = url {	Error with context
+
+** Sync Operation Tests
+Test Case	Installed	Declared	Expected
+All present	[a,b,c]	[a,b,c]	No changes
+Missing one	[a,b]	[a,b,c]	Install c
+Extra one	[a,b,c]	[a,b]	Note unmanaged c
+Bloatware	[a,bloat]	[a]	Remove bloat if -r
+Empty declared	[a,b,c]	[]	All unmanaged
+Empty installed	[]	[a,b,c]	Install all
+Both empty	[]	[]	No changes
+
+** Backend Operation Tests
+Test Case	Condition	Expected
+Available	Command exists	is_available = true
+Unavailable	Command missing	is_available = false
+Install success	Valid packages	Ok(())
+Install partial	Some invalid	Error listing failures
+Install none valid	All invalid	Error
+List empty	No packages	Ok(empty vec)
+List many	Many packages	All parsed correctly
+Sudo needed	System backend	sudo prepended
+Sudo not needed	Language backend	No sudo
+
+    Running Tests
+
+** Basic Commands
+
+#+BEGIN_EXAMPLE
+Run all tests
+
+cargo test
+Run specific test
+
+cargo test test_parse_section
+Run tests matching pattern
+
+cargo test sync
+Run tests in specific file
+
+cargo test --test sync_tests
+Run with output shown
+
+cargo test -- --nocapture
+Run ignored tests
+
+cargo test -- --ignored
+Run single-threaded (for tests that conflict)
+
+cargo test -- --test-threads=1
+#+END_EXAMPLE
+
+** Test Coverage
+
+#+BEGIN_EXAMPLE
+Install tarpaulin
+
+cargo install cargo-tarpaulin
+Run with coverage
+
+cargo tarpaulin --out Html
+View report
+
+open tarpaulin-report.html
+#+END_EXAMPLE
+
+** Continuous Integration
+
+#+BEGIN_EXAMPLE
+In .github/workflows/ci.yml
+
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+test:
+runs-on: ubuntu-latest
+steps:
+- uses: actions/checkout@v4
+- uses: dtolnay/rust-toolchain@stable
+- run: cargo test --all-features
+- run: cargo clippy -- -D warnings
+#+END_EXAMPLE
+
+    Test Checklist by Component
+
+** Config Module
+
+    Valid TOML parsing
+    Invalid TOML error handling
+    Missing required fields
+    Default values applied
+    Nested structures (hostname_groups, hooks)
+    File not found handling
+    Permission denied handling
+
+** Group Parser
+
+    Section headers
+    Package names
+    Comments and blank lines
+    GitHub special syntax
+    Multiple files merged
+    Deduplication
+    Error line numbers
+
+** Each Backend
+
+    Availability detection
+    List installed parsing
+    Install command generation
+    Remove command generation
+    Sudo handling
+    Error handling
+
+** Sync Engine
+
+    Diff calculation
+    Plan generation
+    Dry run behavior
+    Execution order
+    Partial failure handling
+    Summary generation
+
+** GitHub Client
+
+    API request formation
+    Response parsing
+    Asset selection
+    Download progress
+    Rate limit handling
+    Version comparison
+
+Follow this guide to build a comprehensive test suite that gives you confidence in Nexus.
+
+Now I'll create the Architecture Decisions document:
+
+#+TITLE: Nexus Architecture Decision Records
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:3 num:t
+
+    Introduction
+
+Architecture Decision Records (ADRs) document significant design decisions and their rationale. When you wonder "why is it done this way?", these records provide the answer.
+
+Each ADR follows a standard format:
+
+    Context: The situation and constraints
+    Decision: What we chose to do
+    Consequences: The results of this decision
+
+    ADR-001: Use Rust for Implementation
+
+** Status
+Accepted
+
+** Context
+Nexus needs to be fast, reliable, and safe. It manages system packages—bugs could break systems. The reference implementation (LiNix) uses Go, which is fast and simple.
+
+Options considered:
+
+    Go (like LiNix)
+    Rust
+    Python
+    C/C++
+
+** Decision
+Use Rust for the Nexus implementation.
+
+** Rationale
+
+    Memory safety without GC: Rust prevents memory bugs at compile time
+    Performance: Matches or exceeds Go performance
+    Concurrency safety: Data race prevention built into the type system
+    Learning value: Building Nexus teaches systems programming in Rust
+    Ecosystem: Excellent crates for CLI, HTTP, async
+
+** Consequences
+
+    Steeper learning curve than Go
+    Longer initial development time
+    Deeper understanding of systems programming
+    Strong safety guarantees for a system-critical tool
+
+    ADR-002: Trait Objects for Backend Polymorphism
+
+** Status
+Accepted
+
+** Context
+Nexus supports 19 different package manager backends. Code that operates on backends should work with any backend without knowing its concrete type.
+
+Options considered:
+
+    Generics with trait bounds (static dispatch)
+    Trait objects with Box<dyn Trait> (dynamic dispatch)
+    Enum with variant per backend
+
+** Decision
+Use trait objects (Box<dyn PackageManager>) for runtime polymorphism.
+
+** Rationale
+
+    Heterogeneous collections: Need to store different backends in one Vec
+    Runtime selection: Which backends are available is determined at runtime
+    Plugin potential: Easier to extend with new backends
+    Performance acceptable: Vtable overhead negligible for I/O-bound operations
+
+** Consequences
+
+    Trait must be object-safe (no generic methods, no Self returns)
+    Slight overhead from vtable dispatch
+    Flexibility in backend management
+    Can store mixed backend types together
+
+    ADR-003: Async Runtime Choice (Tokio)
+
+** Status
+Accepted
+
+** Context
+Nexus benefits from concurrent operations: querying multiple backends, downloading multiple files. Rust's async model requires choosing a runtime.
+
+Options considered:
+
+    Tokio (most popular, full-featured)
+    async-std (simpler, stdlib-like API)
+    smol (minimal, composable)
+    No async (use threads)
+
+** Decision
+Use Tokio as the async runtime.
+
+** Rationale
+
+    Ecosystem: Most crates assume Tokio (reqwest, etc.)
+    Features: Comprehensive I/O, timers, channels
+    Maturity: Battle-tested in production
+    Documentation: Excellent tutorials and guides
+
+** Consequences
+
+    Dependency on Tokio's conventions
+    Async trait methods require async-trait crate
+    Learning async Rust patterns
+    Excellent performance for concurrent I/O
+
+    ADR-004: Error Handling Strategy
+
+** Status
+Accepted
+
+** Context
+Error handling affects both reliability and user experience. Rust offers several approaches to error handling.
+
+Options considered:
+
+    Custom error enum everywhere
+    anyhow everywhere
+    thiserror for library, anyhow for application
+    String errors
+
+** Decision
+Use thiserror for domain error types, anyhow for application-level handling.
+
+** Rationale
+
+    thiserror: Clean definition of specific errors where callers need to match
+    anyhow: Convenient for aggregating errors in application code
+    Best of both: Domain-specific errors where needed, convenience where not
+    Context: anyhow's .context() provides excellent error chains
+
+** Consequences
+
+    Two error handling crates as dependencies
+    Clear pattern: specific errors in libraries, flexible in application
+    Excellent error messages with context chains
+    Some learning curve for when to use which
+
+    ADR-005: Configuration Format (TOML)
+
+** Status
+Accepted
+
+** Context
+Configuration files need to be readable by humans and parseable by machines. LiNix uses TOML.
+
+Options considered:
+
+    TOML (what LiNix uses)
+    YAML
+    JSON
+    Custom format
+
+** Decision
+Use TOML for configuration, following LiNix conventions.
+
+** Rationale
+
+    Compatibility: Users can reuse LiNix configs
+    Readability: TOML is designed for configuration
+    Rust ecosystem: Excellent toml crate with serde integration
+    Simplicity: Less error-prone than YAML's complexity
+
+** Consequences
+
+    Compatible with existing LiNix configurations
+    Familiar to users of other Rust tools (Cargo uses TOML)
+    Good serde integration for parsing
+    Some limitations for deeply nested data
+
+    ADR-006: Group File Format
+
+** Status
+Accepted
+
+** Context
+Group files list packages by backend. Need a simple format users can edit by hand.
+
+Options considered:
+
+    TOML
+    INI-style with [sections]
+    Custom text format
+    YAML
+
+** Decision
+Use simple text format with [backend] section headers, following LiNix.
+
+** Rationale
+
+    Simplicity: One package per line, easy to edit
+    Compatibility: Matches LiNix format exactly
+    Diff-friendly: Adding a package is adding a line
+    No special syntax: Just sections and names
+
+** Consequences
+
+    Need custom parser (simple state machine)
+    Compatible with LiNix group files
+    Special handling for GitHub syntax
+    Easy for users to maintain
+
+    ADR-007: CLI Framework (clap)
+
+** Status
+Accepted
+
+** Context
+Command-line parsing needs to be robust, with good help generation and error messages.
+
+Options considered:
+
+    clap (derive or builder)
+    structopt (deprecated, merged into clap)
+    argh (Google's simple CLI)
+    Manual parsing
+
+** Decision
+Use clap with derive macros.
+
+** Rationale
+
+    Industry standard: Most popular Rust CLI library
+    Derive macros: Clean, declarative CLI definition
+    Features: Subcommands, completions, help generation
+    Maintenance: Actively developed and maintained
+
+** Consequences
+
+    Some compile time for derive macros
+    Excellent help text generation
+    Type-safe argument handling
+    Rich feature set (may not need all)
+
+    ADR-008: Project Structure
+
+** Status
+Accepted
+
+** Context
+As the project grows, code organization affects maintainability. Need clear separation of concerns.
+
+Options considered:
+
+    Flat structure (all in src/)
+    Feature-based modules
+    Layer-based modules
+    Hybrid approach
+
+** Decision
+Use layer-based modules with feature grouping within layers.
+
+** Rationale
+
+    Clear boundaries: CLI, config, backends, sync, github are distinct
+    Testability: Each layer can be tested independently
+    Library separation: Core logic in lib.rs, thin binary in main.rs
+    Growth: Easy to add backends or features
+
+** Consequences
+
+    More files and directories
+    Clear where new code belongs
+    Reusable library potential
+    Some boilerplate in module declarations
+
+    ADR-009: Testing Strategy
+
+** Status
+Accepted
+
+** Context
+A package manager needs thorough testing—bugs modify system state. Need strategy for testing at multiple levels.
+
+Options considered:
+
+    Unit tests only
+    Integration tests only
+    Full testing pyramid
+    Property-based testing
+
+** Decision
+Implement full testing pyramid with mocks for external dependencies.
+
+** Rationale
+
+    Unit tests: Fast, focused, catch regressions
+    Integration tests: Verify component interaction
+    Mocks: Test without modifying system
+    Real tests: Validate on actual systems before release
+
+** Consequences
+
+    More test code to maintain
+    High confidence in correctness
+    Mock implementations for all backends
+    CI can run without system access
+
+    ADR-010: Parallelism Model
+
+** Status
+Accepted
+
+** Context
+Parallel operations improve performance but add complexity. Need to balance speed with safety and simplicity.
+
+Options considered:
+
+    Sequential only (simple but slow)
+    Parallel everything (fast but complex)
+    Selective parallelism (balanced)
+    User-configurable
+
+** Decision
+Parallel by default for independent operations, sequential for conflicting ones.
+
+** Rationale
+
+    Safe default: Don't run conflicting operations together
+    Fast where possible: Parallel backend queries, parallel downloads
+    Semaphore control: Limit concurrent operations to avoid overload
+    Configurable: Allow tuning for advanced users
+
+** Consequences
+
+    Need to categorize operations as parallel-safe or not
+    Semaphore management for resource limits
+    Significant speedup for multi-backend syncs
+    More complex error handling for parallel failures
+
+    ADR-011: GitHub Integration Approach
+
+** Status
+Accepted
+
+** Context
+GitHub releases are not like package managers—need to handle downloads, assets, versions manually.
+
+Options considered:
+
+    Shell out to existing tools (gh, curl)
+    Direct API integration
+    Wrapper around existing downloader
+
+** Decision
+Direct integration using reqwest for API and downloads.
+
+** Rationale
+
+    Control: Full control over requests and error handling
+    Async: Integrates with Tokio-based concurrency
+    Progress: Can show download progress
+    No dependencies: Don't require external tools installed
+
+** Consequences
+
+    More code for GitHub handling
+    Asset selection logic needed
+    Version tracking responsibility
+    Full control over behavior
+
+    ADR-012: Logging Framework
+
+** Status
+Accepted
+
+** Context
+Logging helps debugging and provides operational visibility. Need structured, leveled logging.
+
+Options considered:
+
+    println! everywhere
+    log crate with env_logger
+    tracing crate
+    Custom logging
+
+** Decision
+Use tracing with tracing-subscriber.
+
+** Rationale
+
+    Structured: Key-value pairs in log messages
+    Async-aware: Works well with Tokio
+    Spans: Can track operations over time
+    Flexible output: Console, JSON, etc.
+
+** Consequences
+
+    Learning tracing patterns
+    Better debugging capability
+    Performance overhead minimal
+    Rich operational insights
+
+    Decision Summary Table
+
+ADR	Decision	Key Rationale
+001	Rust	Safety, performance, learning
+002	Trait objects	Runtime polymorphism
+003	Tokio	Ecosystem, features
+004	thiserror + anyhow	Specific + flexible errors
+005	TOML	Compatibility, readability
+006	Text format	Simplicity, compatibility
+007	clap derive	Standard, declarative
+008	Layer modules	Separation, testability
+009	Test pyramid	Confidence, coverage
+010	Selective parallel	Balance speed/safety
+011	Direct GitHub API	Control, integration
+012	tracing	Structured, async-aware
+
+Refer to these ADRs when questioning design decisions or considering changes.
+
+Now I'll create the Daily Log Template:
+
+#+TITLE: Nexus Daily Learning Log Template
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:2 num:nil
+
+    Instructions
+
+Copy this template for each day of your learning journey. Fill it out during or immediately after your 20-minute session. Consistent logging accelerates learning and helps identify patterns.
+
+    Daily Log Template
+
+** Day [NUMBER]: [TOPIC]
+:PROPERTIES:
+:DATE: [YYYY-MM-DD]
+:DURATION: 20 minutes
+:PHASE: [0/1/2/3/4]
+:END:
+
+*** What I Planned to Do
+
+    Primary goal:
+    Secondary goal:
+    Reading assignment:
+
+*** What I Actually Did
+#+BEGIN_EXAMPLE
+Describe what you accomplished in your session.
+Be specific: "Implemented parse_section_header function"
+not vague: "Worked on parsing"
+#+END_EXAMPLE
+
+*** Key Concepts Learned
+1.
+2.
+3.
+
+*** Code Written / Files Changed
+File	Changes
+	
+
+*** Challenges Encountered
+#+BEGIN_EXAMPLE
+Describe any difficulties, compiler errors, or confusion.
+Include the error message if applicable.
+#+END_EXAMPLE
+
+*** How I Resolved Them
+#+BEGIN_EXAMPLE
+Describe how you solved the challenge.
+Include resources consulted.
+#+END_EXAMPLE
+
+*** Questions That Arose
+
+    Question 1:
+    Question 2:
+
+*** Connections to Previous Learning
+#+BEGIN_EXAMPLE
+How does today's topic relate to what you learned before?
+"This uses the ownership patterns from Day 7-12"
+#+END_EXAMPLE
+
+*** Tomorrow's Plan
+
+    Primary goal:
+    Questions to resolve:
+
+*** Confidence Level (1-5)
+Aspect	Rating	Notes
+Understanding concepts	/5	
+Writing code	/5	
+Debugging errors	/5	
+Overall progress	/5	
+
+*** Session Notes
+#+BEGIN_EXAMPLE
+Any other observations, ideas, or reflections.
+#+END_EXAMPLE
+
+    Weekly Review Template
+
+** Week [NUMBER] Review
+:PROPERTIES:
+:DATES: [START] to [END]
+:PHASE: [0/1/2/3/4]
+:END:
+
+*** Days Completed
+
+    Day X:
+    Day X+1:
+    Day X+2:
+    Day X+3:
+    Day X+4:
+    Day X+5:
+
+*** Major Accomplishments
+1.
+2.
+3.
+
+*** Concepts Solidified
+
+    Concept 1: Confidence level /5
+    Concept 2: Confidence level /5
+    Concept 3: Confidence level /5
+
+*** Concepts Still Unclear
+
+    What's confusing:
+        Plan to resolve:
+    What's confusing:
+        Plan to resolve:
+
+*** Code Metrics
+Metric	Value
+Files created	
+Tests written	
+Tests passing	
+Lines of code (estimate)	
+
+*** Time Analysis
+Day	Planned	Actual	Notes
+1	20 min		
+2	20 min		
+3	20 min		
+4	20 min		
+5	20 min		
+6	20 min		
+
+*** What Worked Well
+1.
+2.
+
+*** What Could Improve
+1.
+2.
+
+*** Adjustments for Next Week
+1.
+2.
+
+*** Overall Week Rating: /5
+
+    Phase Review Template
+
+** Phase [NUMBER] Review: [PHASE NAME]
+:PROPERTIES:
+:DATES: [START] to [END]
+:WEEKS: [X] to [Y]
+:DAYS: [A] to [B]
+:END:
+
+*** Phase Goals
+Goal	Status	Notes
+	☐/✓	
+
+*** Key Skills Acquired
+1.
+2.
+3.
+4.
+5.
+
+*** Major Challenges Overcome
+1.
+2.
+3.
+
+*** Code Produced
+Component	Status	Test Coverage
+		
+
+*** Favorite Part of This Phase
+
+*** Most Difficult Part of This Phase
+
+*** How This Phase Changed My Understanding
+
+*** Readiness for Next Phase: /5
+
+*** Celebration / Reward
+#+BEGIN_EXAMPLE
+What will you do to celebrate completing this phase?
+#+END_EXAMPLE
+
+    Sample Filled Entry
+
+** Day 7: Understanding Ownership
+:PROPERTIES:
+:DATE: 2024-01-15
+:DURATION: 25 minutes
+:PHASE: 0
+:END:
+
+*** What I Planned to Do
+
+    Primary goal: Read and understand Chapter 4.1 of The Rust Book
+    Secondary goal: Write code that demonstrates move semantics
+    Reading assignment: The Rust Book 4.1
+
+*** What I Actually Did
+Read the ownership chapter twice - it's dense! Created a file called
+ownership_experiments.rs where I intentionally triggered ownership
+errors to understand them better. Successfully demonstrated move
+semantics with String types and understood why integers don't move.
+
+*** Key Concepts Learned
+
+    Each value has exactly one owner
+    When the owner goes out of scope, the value is dropped
+    Assignment moves ownership for heap types (String, Vec)
+    Stack types (i32, bool) implement Copy and don't move
+
+*** Code Written / Files Changed
+File	Changes
+src/ownership_experiments.rs	Created with move demos
+src/main.rs	Added mod declaration
+
+*** Challenges Encountered
+Got confused about why String moves but i32 doesn't. The error
+message said "value used here after move" but the same code with
+integers worked fine.
+
+*** How I Resolved Them
+Re-read the section on the Copy trait. Realized that types that are
+entirely on the stack implement Copy, while types with heap data
+(like String) do not. This makes sense because copying heap data
+is expensive and should be explicit.
+
+*** Questions That Arose
+
+    Why can't String implement Copy? (Answered: heap allocation)
+    When would I want a type to implement Copy vs Clone?
+
+*** Connections to Previous Learning
+This explains why I needed to use .clone() on Day 4 when I wanted
+to use a String twice. Now I understand why the compiler complained.
+
+*** Tomorrow's Plan
+
+    Primary goal: Learn about borrowing with &
+    Questions to resolve: Copy vs Clone question
+
+*** Confidence Level (1-5)
+Aspect	Rating	Notes
+Understanding concepts	4/5	Get the rules, practicing applying them
+Writing code	3/5	Still need to think hard about ownership
+Debugging errors	4/5	Compiler errors make sense now
+Overall progress	4/5	Big conceptual day!
+
+*** Session Notes
+This feels like the most important concept so far. The book wasn't
+kidding when it said ownership is the heart of Rust. Going to spend
+extra time on this section even though it's one "day" of material.
+
+Use this template daily. Your future self will thank you!
+
+Now I'll create the Glossary:
+
+#+TITLE: Nexus Glossary
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:2 num:nil
+
+    Rust Language Terms
+
+** Ownership & Memory
+Term	Definition
+Ownership	The system where each value has exactly one owning variable
+Owner	The variable that owns a value and is responsible for its cleanup
+Move	Transfer of ownership from one variable to another
+Drop	Automatic cleanup when an owner goes out of scope
+Borrowing	Accessing a value through a reference without taking ownership
+Reference	A pointer that borrows a value; created with &
+Mutable reference	A reference allowing modification; created with &mut
+Lifetime	The scope during which a reference is valid
+Lifetime annotation	Explicit lifetime specification using 'a syntax
+Dangling reference	A reference to invalid/freed memory (prevented by Rust)
+Clone	Explicit deep copy of data; requires .clone() call
+Copy	Implicit bitwise copy for simple stack types
+
+** Types & Traits
+Term	Definition
+Trait	A collection of methods that types can implement; like interfaces
+Trait bound	Constraint requiring a type implements certain traits
+Trait object	Dynamic dispatch using dyn Trait
+Generic	Type or function parameterized by other types
+Derive	Automatic trait implementation via macro
+Struct	Custom data type grouping related values
+Enum	Type with a fixed set of variants, each potentially holding data
+Tuple	Fixed-size collection of values of different types
+Slice	A view into a contiguous sequence; written as &[T] or &str
+Option<T>	Enum representing presence (Some) or absence (None) of a value
+Result<T,E>	Enum representing success (Ok) or failure (Err)
+Unit type	The type () representing no meaningful value; like void
+
+** Functions & Control Flow
+Term	Definition
+Expression	Code that evaluates to a value
+Statement	Code that performs an action without returning a value
+Implicit return	Returning a value by omitting the semicolon
+Match	Pattern matching construct for enums and values
+Pattern	A template for matching value structure
+Guard	Additional condition in a match arm using if
+Closure	Anonymous function that captures environment
+Iterator	A sequence of values produced on demand
+Adapter	Iterator method that transforms an iterator
+Consumer	Iterator method that produces a final value
+
+** Async Programming
+Term	Definition
+Future	A value representing an async computation
+async	Keyword marking a function as asynchronous
+await	Keyword suspending execution until a future completes
+Runtime	Executor that runs async tasks (e.g., Tokio)
+Task	A unit of async work; like a lightweight thread
+Spawn	Creating a new independent task
+Join	Waiting for multiple futures to complete
+Select	Racing multiple futures, returning first to complete
+Semaphore	Synchronization primitive limiting concurrent access
+
+** Modules & Visibility
+Term	Definition
+Crate	A compilation unit; a library or binary
+Module	A namespace for organizing code within a crate
+pub	Visibility modifier making an item public
+pub(crate)	Visible within the crate but not externally
+pub(super)	Visible to the parent module
+use	Brings items into scope
+mod	Declares a module
+Prelude	A module of commonly-used items for bulk import
+
+** Error Handling
+Term	Definition
+Panic	Unrecoverable error causing program termination
+unwrap()	Extract Ok/Some or panic on Err/None
+expect()	Like unwrap but with custom panic message
+? operator	Propagate errors or None early from a function
+Error chain	Nested errors showing root cause to user-facing error
+Context	Additional information attached to an error
+
+    Package Management Terms
+
+** General Concepts
+Term	Definition
+Package manager	Tool for installing, updating, and removing software
+Package	A distributable unit of software
+Dependency	A package required by another package
+Repository	Server hosting packages for download
+Backend	A specific package manager that Nexus interfaces with
+Declarative	Defining desired state rather than steps to achieve it
+Imperative	Specifying exact commands to run
+
+** Nexus-Specific Terms
+Term	Definition
+Declared packages	Packages listed in Nexus configuration
+** Nexus-Specific Terms (continued)
+| Term                 | Definition                                                                 |
+|----------------------+----------------------------------------------------------------------------|
+| Declared packages    | Packages listed in Nexus configuration                                     |
+| Installed packages   | Packages currently present on the system                                   |
+| Unmanaged packages   | Installed but not declared in configuration                                |
+| Orphan packages      | Dependencies no longer needed by any package                               |
+| Bloatware            | Packages explicitly marked for removal in bloatware.txt                    |
+| Group file           | Text file listing packages organized by backend                            |
+| Sync                 | Operation aligning installed packages with declared packages               |
+| Dry run              | Preview mode showing changes without executing them                        |
+| Backend registry     | Collection of all available package managers                               |
+| Asset                | Downloadable file from a GitHub release                                    |
+| Asset type           | Format of GitHub asset (deb, rpm, tarball, appimage, etc.)                 |
+| Version tracking     | Recording installed versions for update detection                          |
+| Hostname group       | Machine-specific package list based on hostname                            |
+| Hook                 | Command executed before or after package installation                      |
+
+** Package Types by Backend
+| Backend    | Package Identifier Format            | Example                        |
+|------------+--------------------------------------+--------------------------------|
+| apt        | Package name                         | vim                            |
+| pacman     | Package name                         | vim                            |
+| pip        | PyPI package name                    | requests                       |
+| pipx       | PyPI package name                    | black                          |
+| npm        | NPM package name                     | typescript                     |
+| cargo      | Crate name                           | ripgrep                        |
+| flatpak    | Application ID (reverse DNS)         | com.spotify.Client             |
+| snap       | Snap name                            | vlc                            |
+| github     | Repository URL + asset spec          | https://github.com/user/repo   |
+
+** Operation Types
+| Operation  | Definition                                                                 |
+|------------+----------------------------------------------------------------------------|
+| Install    | Add a package to the system                                                |
+| Remove     | Delete a package from the system                                           |
+| Update     | Upgrade a package to a newer version                                       |
+| List       | Query installed packages                                                   |
+| Clean      | Remove packages not in configuration                                       |
+| Purge      | Remove package and its configuration files                                 |
+| Autoremove | Remove orphaned dependencies                                               |
+
+** States & Status
+| Term               | Definition                                                             |
+|--------------------+------------------------------------------------------------------------|
+| Available          | Backend command exists and is executable                               |
+| Unavailable        | Backend not present on system                                          |
+| Success            | Operation completed without errors                                     |
+| Failure            | Operation encountered errors                                           |
+| Skipped            | Operation bypassed (already installed, etc.)                           |
+| Pending            | Operation queued but not yet executed                                  |
+
+* Configuration Terms
+
+** File Types
+| File                 | Format | Purpose                                    |
+|----------------------+--------+--------------------------------------------|
+| config.toml          | TOML   | Main configuration                         |
+| groups/*.txt         | Text   | Package lists by backend                   |
+| bloatware.txt        | Text   | Packages to remove                         |
+| githubInstalled.txt  | Text   | Version tracking for GitHub packages       |
+
+** Configuration Sections
+| Section                      | Purpose                                        |
+|------------------------------+------------------------------------------------|
+| [enabled_backends]           | List of backends to use                        |
+| [hostname_groups.NAME]       | Packages for specific machine                  |
+| [groups.NAME.before_install] | Commands before installing packages            |
+| [groups.NAME.after_install]  | Commands after installing packages             |
+
+** Special Syntax
+| Syntax                             | Meaning                                  |
+|------------------------------------+------------------------------------------|
+| [backend]                          | Section header for backend               |
+| # comment                          | Comment line (ignored)                   |
+| name = url {json}                  | GitHub package specification             |
+| {"type": "deb"}                    | GitHub asset type                        |
+| {"path": "$HOME/.local/bin"}       | Custom installation path                 |
+
+* Testing Terms
+
+| Term                | Definition                                                             |
+|---------------------+------------------------------------------------------------------------|
+| Unit test           | Test of a single function or method                                    |
+| Integration test    | Test of multiple components working together                           |
+| End-to-end test     | Test of complete user workflow                                         |
+| Fixture             | Test data (files, strings) used in tests                               |
+| Mock                | Fake implementation for testing                                        |
+| Assertion           | Test statement verifying expected behavior                             |
+| Test coverage       | Percentage of code exercised by tests                                  |
+| Regression test     | Test ensuring bugs don't reappear                                      |
+| Happy path          | Test of expected/normal usage                                          |
+| Edge case           | Test of boundary conditions                                            |
+
+* Build & Distribution Terms
+
+| Term             | Definition                                                                |
+|------------------+---------------------------------------------------------------------------|
+| Cargo            | Rust's build system and package manager                                   |
+| Cargo.toml       | Project manifest defining dependencies                                     |
+| Release build    | Optimized binary for distribution                                          |
+| Debug build      | Unoptimized binary with debug symbols                                      |
+| Cross-compilation| Building for a different target platform                                  |
+| Target triple    | String identifying platform (e.g., x86_64-unknown-linux-gnu)               |
+| LTO              | Link-Time Optimization for smaller/faster binaries                         |
+| Strip            | Remove debug symbols from binary                                           |
+| CI/CD            | Continuous Integration / Continuous Deployment                             |
+
+* Performance Terms
+
+| Term                | Definition                                                             |
+|---------------------+------------------------------------------------------------------------|
+| Benchmark           | Measurement of code performance                                        |
+| Profiling           | Analysis showing where time is spent                                   |
+| Hot path            | Code executed frequently                                               |
+| Bottleneck          | Part of code limiting overall performance                              |
+| Parallelism         | Multiple operations executing simultaneously                           |
+| Concurrency         | Managing multiple operations, possibly in parallel                     |
+| Latency             | Time for a single operation                                            |
+| Throughput          | Operations per unit time                                               |
+| Zero-cost abstraction| High-level code compiled to same performance as low-level              |
+
+* Common Abbreviations
+
+| Abbr  | Meaning                                   |
+|-------+-------------------------------------------|
+| ADR   | Architecture Decision Record              |
+| API   | Application Programming Interface         |
+| APT   | Advanced Package Tool                     |
+| AUR   | Arch User Repository                      |
+| CI    | Continuous Integration                    |
+| CLI   | Command-Line Interface                    |
+| DNS   | Domain Name System                        |
+| EOF   | End of File                               |
+| HTTP  | Hypertext Transfer Protocol               |
+| I/O   | Input/Output                              |
+| JSON  | JavaScript Object Notation                |
+| LTO   | Link-Time Optimization                    |
+| OS    | Operating System                          |
+| RHEL  | Red Hat Enterprise Linux                  |
+| TOML  | Tom's Obvious Minimal Language            |
+| TTL   | Time To Live                              |
+| UI    | User Interface                            |
+| URL   | Uniform Resource Locator                  |
+| VM    | Virtual Machine                           |
+| XDG   | X Desktop Group (standards)               |
+
+* Rust Ecosystem Tools
+
+| Tool          | Purpose                                   |
+|---------------+-------------------------------------------|
+| rustc         | Rust compiler                             |
+| cargo         | Build system and package manager          |
+| rustup        | Toolchain installer and manager           |
+| rustfmt       | Code formatter                            |
+| clippy        | Linter catching common mistakes           |
+| cargo-tarpaulin| Code coverage tool                       |
+| cargo-flamegraph| Performance profiling                   |
+| cross         | Cross-compilation helper                  |
+
+* Backend-Specific Terms
+
+** APT (Debian/Ubuntu)
+| Term        | Meaning                                   |
+|-------------+-------------------------------------------|
+| dpkg        | Low-level package tool                    |
+| Repository  | Server with .deb packages                 |
+| PPA         | Personal Package Archive                  |
+
+** Pacman (Arch)
+| Term        | Meaning                                   |
+|-------------+-------------------------------------------|
+| AUR         | Arch User Repository                      |
+| PKGBUILD    | Build script for packages                 |
+
+** Python
+| Term        | Meaning                                   |
+|-------------+-------------------------------------------|
+| PyPI        | Python Package Index                      |
+| Virtual env | Isolated Python environment               |
+| Wheel       | Python package format                     |
+
+** Node.js
+| Term          | Meaning                                 |
+|---------------+-----------------------------------------|
+| package.json  | Node project manifest                   |
+| node_modules  | Dependency installation directory       |
+| Registry      | NPM package repository                  |
+
+** GitHub
+| Term        | Meaning                                   |
+|-------------+-------------------------------------------|
+| Release     | Tagged version with downloadable assets   |
+| Asset       | File attached to a release                |
+| Tag         | Version marker in Git                     |
+| API         | Programmatic interface to GitHub          |
+
+---
+
+Use this glossary to clarify terminology throughout your Nexus journey.
+
+#+END_EXAMPLE
+
+---
+
+# ✅ **DOCUMENT COMPLETED**
+
+Your **Nexus Quick Reference** appendix is now complete with:
+
+1. **Rust Syntax Quick Reference** ✅
+2. **Cargo Commands** ✅
+3. **Common Patterns** ✅
+4. **Module Declarations** ✅
+5. **Testing** ✅
+6. **Derive Macros** ✅
+7. **Key Crate Usage** ✅
+8. **Project Specification** ✅
+9. **Cargo.toml Reference** ✅
+10. **Testing Guide** ✅
+11. **Architecture Decision Records** ✅
+12. **Daily Log Template** ✅
+13. **Glossary** ✅ (just finished)
+
+---
+

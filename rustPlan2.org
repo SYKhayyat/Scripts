@@ -1,0 +1,719 @@
+
+
+Here's your complete Rust learning plan for rebuilding LiNix, converted to proper **Org Mode format**. Save as `rust-linix-plan.org` for use in Emacs or any Org-compatible tool:
+
+```org
+* Rust Learning Plan: Rebuilding LiNix in Rust
+:PROPERTIES:
+:STARTED: <%Y-%m-%d>
+:TODO: TODO | IN-PROGRESS | DONE
+:END:
+
+** Introduction
+This is a 10-week structured plan to learn Rust while rebuilding LiNix (a declarative package manager) as a term project. Designed for a Java/Spring Boot student familiar with Data Structures.
+
+*** Philosophy
+- Learn Rust concepts *just-in-time* as needed for project features
+- Map Rust concepts to familiar Java paradigms
+- Prioritize safety and efficiency in 30-minute daily sessions
+- Follow the project structure exactly as defined in the LiNix README
+
+*** Primary Resources
+- [[https://doc.rust-lang.org/book/][The Rust Programming Language (TRPL)]]
+- [[https://doc.rust-lang.org/rust-by-example/][Rust By Example]]
+- [[https://github.com/rust-lang/rustlings][Rustlings]] - Small exercises
+- [[https://doc.rust-lang.org/std/][Standard Library Docs]]
+
+*** Day 0 Setup (15 min) - DO NOW
+#TASK: Install Rust toolchain
+RUN: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+VERIFY: rustc --version && cargo --version
+INSTALL: VS Code + rust-analyzer extension
+RUN: cargo install rustlings && rustlings init
+BOOKMARK: https://doc.rust-lang.org/book/
+
+*** Phase 1: Rust Foundations (Weeks 1-2)
+This phase focuses on core Rust concepts. No project code written yet.
+
+**** Week 1 - The Rust Mental Model
+***** Day 1 (Sun) - Hello Cargo, Variables, Mutability
+*** TODO
+** Read**: TRPL Ch 1.1–1.3 + Ch 3.1
+** Java → Rust Bridge**:
+- Variables are immutable by default in Rust (`let x = 5;`)
+- `let mut x = 5;` for mutability
+- `cargo build` + `cargo run` replaces `javac` + `java`
+- Cargo = Maven/Gradle + build system
+*** To-Do**:
+1. CREATE PROJECT: `cargo new hello-rust && cd hello-rust`
+2. EXPLORE: Note structure (`Cargo.toml` = pom.xml, `src/main.rs`)
+3. EXPERIMENT:
+   ```rust
+   let name = "LiNix";          // immutable
+   let mut version = 1;          // mutable
+   version = 2;                  // OK because mut
+   // name = "Other";            // COMPILE ERROR — try it!
+   ```
+4. RUN: `cargo run`
+5. DO RUSTLINGS: `rustlings run variables1` through `variables6`
+*** Project Connection**:
+Every config value, package name, and backend requires deliberate `let` vs `let mut` choices.
+
+***** Day 2 (Mon) - Types, Functions, Control Flow
+*** TODO
+** Read**: TRPL Ch 3.2, 3.3, 3.5
+** Java → Rust Bridge**:
+- Primitives: `i32`, `f64`, `bool`
+- Function syntax: `fn add(a: i32, b: i32) -> i32`
+- `if` is an expression (returns value!)
+*** To-Do**:
+1. WRITE FUNCTION:
+   ```rust
+   fn is_valid_package(name: &str) -> bool {
+       !name.is_empty() && !name.contains(' ')
+   }
+   ```
+2. CREATE SUMMARY FUNCTION:
+   ```rust
+   fn print_summary(to_install: u32, to_remove: u32) {
+       let action = if to_install > 0 { "Changes needed" } else { "Already in sync" };
+       println!("{}: +{} -{}", action, to_install, to_remove);
+   }
+   ```
+3. NOTICE: `if` returns values (no ternary needed!)
+4. DO RUSTLINGS: `functions1`–`5`, `if1`–`3`
+*** Project Connection**:
+Your group file parser will process lines using these primitives.
+
+***** Day 3 (Tue) - Ownership (Part 1)
+*** TODO
+** Read**: TRPL Ch 4.1 ("What is Ownership?") — **READ TWICE**
+** Java → Rust Bridge**:
+- Rule 1: Each value has ONE owner
+- Rule 2: Dropped when owner goes out of scope
+- Rule 3: Assignment MOVES ownership (for heap data)
+- Snippet to understand:
+  ```rust
+  let s1 = String::from("vim");
+  let s2 = s1;           // s1 is MOVED
+  // println!("{}", s1);  // ERROR: s1 moved!
+  ```
+*** To-Do**:
+1. PREDICT COMPILATION for these snippets:
+   ```rust
+   // A: Fails (String moved)
+   let a = String::from("git");
+   let b = a;
+   println!("{}", a);
+   
+   // B: Works (integers are Copy)
+   let a = 42;
+   let b = a;
+   println!("{}", a);
+   
+   // C: Works (explicit clone)
+   let a = String::from("git");
+   let b = a.clone();
+   println!("{} {}", a, b);
+   ```
+2. EXPLAIN: Why snippet B works (integer implements `Copy`)
+3. DO RUSTLINGS: `move_semantics1`–`5`
+*** Project Connection**:
+When passing package lists to functions, decide: borrow (`&Vec<String>`) or take ownership?
+
+***** Day 4 (Wed) - Ownership: References & Borrowing
+*** TODO
+** Read**: TRPL Ch 4.2
+** Java → Rust Bridge**:
+- Explicit lending via `&T` (shared) or `&mut T` (mutable)
+- Only ONE `&mut` allowed, or many `&T` — never both
+- Prevents data races at compile time
+*** To-Do**:
+1. REWRITE Day 2 functions to use references
+2. CREATE FUNCTION:
+   ```rust
+   fn longest_package_name(list: &[String]) -> &str {
+       list.iter().max_by_key(|s| s.len()).unwrap()
+   }
+   ```
+3. TEST: Try creating two `&mut refs` — read compiler error
+4. DO RUSTLINGS: `move_semantics6`, all borrowing exercises
+*** Project Connection**:
+This is the core of your backend abstraction — borrowing package lists safely.
+
+***** Day 5 (Thu) - Structs (Rust's "Classes")
+*** TODO
+** Read**: TRPL Ch 5
+** Java → Rust Bridge**:
+| Java | Rust |
+|---|---|
+| `class Package { }` | `struct Package { }` |
+| Constructor | `impl { fn new(...) -> Self }` |
+| `this.name` | `self.name` |
+| Methods in class body | `impl` block |
+| `toString()` | `#[derive(Debug)]` |
+*** To-Do**:
+1. DEFINE STRUCTS:
+   ```rust
+   #[derive(Debug)]
+   struct Package {
+       name: String,
+       backend: String,
+   }
+   
+   impl Package {
+       fn new(name: &str, backend: &str) -> Self {
+           Package {
+               name: name.to_string(),
+               backend: backend.to_string(),
+           }
+       }
+   }
+   ```
+2. CREATE INSTANCES & VECTOR
+3. DO RUSTLINGS: `structs1`–`3`
+*** Project Connection**:
+`Package`, `GroupConfig`, `Backend`, `GithubRelease` — all structs.
+
+***** Day 6 (Fri) - Enums & Pattern Matching
+*** TODO
+** Read**: TRPL Ch 6
+** Java → Rust Bridge**:
+- Enums can hold data per variant
+- `match` forces handling all cases
+- `Option<T>` replaces `null`
+*** To-Do**:
+1. DEFINE BACKEND ENUM:
+   ```rust
+   enum InstallResult {
+       Success,
+       AlreadyInstalled,
+       Failed(String),
+   }
+   ```
+2. USE MATCH:
+   ```rust
+   fn handle(result: InstallResult) {
+       match result {
+           InstallResult::Success => println!("✓ Installed"),
+           InstallResult::Failed(msg) => println!("✗ Error: {}", msg),
+       }
+   }
+   ```
+3. DO RUSTLINGS: `enums1`–`3`, `option1`–`3`
+*** Project Connection**:
+`Backend` enum is central — command dispatching based on it.
+
+**** Week 2 - Advanced Foundations
+***** Day 7 (Sun) - Error Handling with Result
+*** TODO
+** Read**: TRPL Ch 9
+** Java → Rust Bridge**:
+| Java | Rust |
+|---|---|
+| `throws IOException` | `-> Result<T, E>` |
+| `try/catch` | `match Result` or `?` operator |
+| `NullPointerException` | Impossible (`Option` checked at compile time) |
+| `javac` + `java` | `cargo build` + `cargo run` (all-in-one) |
+*** To-Do**:
+1. IMPLEMENT FILE READER:
+   ```rust
+   fn read_config(path: &str) -> Result<String, std::io::Error> {
+       std::fs::read_to_string(path)
+   }
+   ```
+2. HANDLE ERRORS:
+   ```rust
+   match read_config("config.toml") {
+       Ok(contents) => println!("{}", contents),
+       Err(e) => eprintln!("Error: {}", e),
+   }
+   ```
+3. USE ? OPERATOR:
+   ```rust
+   fn load_config(path: &str) -> Result<String, std::io::Error> {
+       let content = std::fs::read_to_string(path)?; // Early return on Err
+       Ok(content)
+   }
+   ```
+4. DO RUSTLINGS: `errors1`–`6`
+*** Project Connection**:
+Every I/O operation, parse, and command execution uses `Result`.
+
+***** Day 8 (Mon) - Collections: Vec, HashMap, String
+*** TODO
+** Read**: TRPL Ch 8
+** Java → Rust Bridge**:
+| Java | Rust |
+|---|---|
+| `ArrayList<String>` | `Vec<String>` |
+| `HashMap<String, List<>>` | `HashMap<String, Vec<String>>` |
+| `String` (one type) | `String` (owned) vs `&str` (borrowed slice) |
+*** To-Do**:
+1. BUILD GROUP MAP:
+   ```rust
+   use std::collections::HashMap;
+   let mut groups: HashMap<String, Vec<String>> = HashMap::new();
+   groups.entry("apt".to_string())
+         .or_insert_with(Vec::new)
+         .push("vim".to_string());
+   ```
+2. ITERATE & PRINT
+3. PRACTICE CONVERTING `String` ↔ `&str`
+4. DO RUSTLINGS: `vecs1`, `vecs2`, `hashmap1`, `hashmap2`, `strings1`–`4`
+*** Project Connection**:
+Group files parse exactly into `HashMap<String, Vec<String>>`.
+
+***** Day 9 (Tue) - Modules & Project Organization
+*** TODO
+** Read**: TRPL Ch 7
+** Java → Rust Bridge**:
+| Java | Rust |
+|---|---|
+| One class per file | One module per file |
+| `package com.example;` | `mod modulename;` in parent |
+| `import` | `use` |
+| `public` | `pub` |
+| Default = package-private | Default = private |
+*** To-Do**:
+1. CREATE `src/greeter.rs` with `pub fn greet(name: &str)`
+2. DECLARE in `main.rs`: `mod greeter;`
+3. CREATE DIRECTORY MODULE: `src/utils/mod.rs`
+4. SKETCH MODULE STRUCTURE:
+   ```org
+   src/
+   ├── main.rs
+   ├── cli.rs
+   ├── config.rs
+   ├── parser.rs
+   ├── sync.rs
+   └── backend/
+       ├── mod.rs
+       ├── traits.rs
+       ├── apt.rs
+       ├── pip.rs
+       └── github.rs
+   ```
+*** Project Connection**:
+This is your project's exact structure.
+
+***** Day 10 (Wed) - Traits (Rust's Interfaces)
+*** TODO
+** Read**: TRPL Ch 10.2
+** Java → Rust Bridge**:
+| Java | Rust |
+|---|---|
+| `interface Installable { }` | `trait Installable { }` |
+| `class Apt implements Installable` | `impl Installable for Apt` |
+| Default methods | Default methods in traits |
+| No multiple inheritance | Implement many traits |
+*** To-Do**:
+1. DEFINE BACKEND TRAIT:
+   ```rust
+   trait PackageBackend {
+       fn name(&self) -> &str;
+       fn install(&self, packages: &[String]) -> Result<(), String>;
+       fn list_installed(&self) -> Result<Vec<String>, String>;
+   }
+   ```
+2. IMPLEMENT FOR APT
+3. WRITE FUNCTION ACCEPTING `&dyn PackageBackend`
+4. DO RUSTLINGS: `traits1`–`5`
+*** Project Connection**:
+Every backend (apt, pip, npm, brew, github…) implements this trait.
+
+***** Day 11 (Thu) - Initialize Real Project
+*** TODO
+** To-Do**:
+1. INIT: `cargo new linix && cd linix`
+2. CREATE FILE STRUCTURE:
+   ```org
+   src/
+   ├── main.rs
+   ├── cli.rs
+   ├── config.rs
+   ├── parser.rs
+   ├── sync.rs
+   └── backend/
+       ├── mod.rs
+       └── traits.rs
+   ```
+3. ADD STUB FUNCTIONS TO EACH FILE
+4. DECLARE MODULES IN `main.rs`
+5. VERIFY: `cargo build`
+6. GIT: `git init && git commit -am "Initial skeleton"`
+*** Project Connection**:
+This becomes your working project.
+
+***** Day 12 (Fri) - Core Data Structures
+*** TODO
+** To-Do**:
+1. DEFINE CONFIG STRUCT:
+   ```rust
+   #[derive(Debug)]
+   pub struct Config {
+       pub enabled_backends: Vec<String>,
+       pub hostname_groups: HashMap<String, Vec<String>>,
+   }
+   ```
+2. DEFINE GROUP FILE STRUCT
+3. IMPLEMENT `PackageMap` TYPE
+4. VERIFY COMPILATION
+*** Project Connection**:
+This defines your entire system's data shape.
+
+*** Phase 2: Building the Engine (Weeks 3-5)
+This phase implements the core sync functionality.
+
+**** Week 3 - File Parsing & External Crates
+***** Day 13 (Sun) - File I/O in Rust
+*** TODO
+** Read**: TRPL Ch 12.1–1.2
+** Java → Rust Bridge**:
+- `Files.readString` → `fs::read_to_string`
+- `BufferedReader` → `contents.lines()`
+*** To-Do**:
+1. CREATE TEST GROUP FILE
+2. IMPLEMENT READ FUNCTION
+3. TEST IN `main.rs`
+4. LIST DIRECTORIES
+5. COMMIT: "Add file reading"
+*** Project Connection**:
+Parsing group files is essential for the project.
+
+***** Day 14 (Mon) - Iterators & String Processing
+*** TODO
+** Read**: TRPL Ch 13.2–1.3
+** Java → Rust Bridge**:
+- `stream().filter()` → `.iter().filter()`
+- `.split()` returns iterator
+*** To-Do**:
+1. IMPLEMENT PARSER:
+   ```rust
+   fn parse_group_content(content: &str) -> HashMap<String, Vec<String>> {
+       // Implementation from markdown plan
+   }
+   ```
+2. TEST WITH SAMPLE FILE
+3. PRACTICE ITERATOR CHAINS
+4. DO RUSTLINGS: `iterators1`–`5`
+*** Project Connection**:
+Your parser will process all group files.
+
+***** Day 15 (Tue) - External Crates: serde & toml
+*** TODO
+** Read**: [[https://serde.rs/][Serde]], TRPL Ch 14
+** Java → Rust Bridge**:
+| Java | Rust |
+|---|---|
+| Maven dependency | `Cargo.toml` dependency |
+| Jackson `@JsonProperty` | `#[derive(Deserialize)]` |
+| `ObjectMapper` | `toml::from_str()` |
+*** To-Do**:
+1. ADD DEPENDENCIES TO `Cargo.toml`
+2. CREATE `config.toml`
+3. IMPLEMENT PARSING FUNCTION
+4. TEST WITH VALID/INVALID TOML
+5. COMMIT: "Parse config.toml"
+*** Project Connection**:
+Configuration files use TOML format.
+
+***** Day 16 (Wed) - Full Group File Parser
+*** TODO
+** To-Do**:
+1. IMPLEMENT COMPLETE PARSER (from markdown)
+2. CREATE SAMPLE GROUP FILES
+3. TEST: Load all groups and print
+4. COMMIT: "Complete group file parser"
+*** Project Connection**:
+This is the core parsing logic.
+
+***** Day 17 (Thu) - Merge Groups & Filter
+*** TODO
+** To-Do**:
+1. IMPLEMENT MERGE FUNCTION
+2. IMPLEMENT FILTER FUNCTION
+3. INTEGRATE INTO `main.rs`
+4. TEST WITH DISABLED BACKENDS
+5. COMMIT: "Merge and filter packages"
+*** Project Connection**:
+User can select which backends to enable.
+
+***** Day 18 (Fri) - Bloatware File & Consolidation
+*** TODO
+** To-Do**:
+1. PARSE BLOATWARE FILE
+2. INTEGRATE INTO SYNC COMMAND
+3. TEST BOTH MODES (sync and remove-bloatware)
+4. RUN CLIPPY AND FORMAT
+5. COMMIT: "Add bloatware parser"
+*** Project Connection**:
+Users can remove unwanted pre-installed software.
+
+*** Phase 3: Feature Complete (Weeks 6-8)
+This phase adds all remaining features.
+
+**** Week 6 - Commands Implementation
+***** Day 31 (Sun) - Unmanaged Command
+*** TODO
+** To-Do**:
+1. IMPLEMENT `list_unmanaged` FUNCTION
+2. WIRE INTO `main.rs` COMMAND MATCH
+3. TEST: `cargo run -- unmanaged`
+4. COMMIT: "Add unmanaged command"
+*** Project Connection**:
+Shows packages installed manually.
+
+***** Day 32 (Mon) - Clean Command
+*** TODO
+** To-Do**:
+1. IMPLEMENT CLEAN LOGIC (remove unmanaged packages)
+2. ADD CONFIRMATION PROMPT
+3. TEST WITH DRY-RUN
+4. COMMIT: "Add clean command"
+*** Project Connection**:
+Removes packages not in your configuration.
+
+***** Day 33 (Tue) - Orphans Command
+*** TODO
+** To-Do**:
+1. IMPLEMENT `clean_orphans`
+2. IMPLEMENT PER-BACKEND ORPHAN REMOVAL
+3. TEST
+4. COMMIT: "Add orphans command"
+*** Project Connection**:
+Removes unused dependency packages.
+
+***** Day 34 (Wed) - Colored Output & UX
+*** TODO
+** To-Do**:
+1. ADD `colored` crate
+2. ADD SUCCESS/FAILURE COLORS
+3. ADD SYNC SUMMARY
+4. COMMIT: "Add colored output"
+*** Project Connection**:
+Better user experience with visual feedback.
+
+***** Day 35 (Thu) - Lifetimes Primer
+*** TODO
+** Read**: TRPL Ch 10.3 (lifetimes)
+** To-Do**:
+1. UNDERSTAND LIFETIME ANNOTATIONS
+2. FIX ANY LIFETIME ERRORS IN YOUR CODE
+3. DO RUSTLINGS: `lifetimes1`–`3`
+4. COMMIT: "Fix lifetime issues"
+*** Project Connection**:
+Ensures references are valid during execution.
+
+**** Week 7 - GitHub Releases & HTTP
+***** Day 37 (Sun) - Async Rust & reqwest Setup
+*** TODO
+** Read**: reqwest docs (blocking client)
+** To-Do**:
+1. ADD reqwest DEPENDENCY
+2. TEST GITHUB API CALL
+3. COMMIT: "Add reqwest for GitHub API"
+*** Project Connection**:
+Fetches latest releases from GitHub.
+
+***** Day 38 (Mon) - GitHub Release Parsing
+*** TODO
+** To-Do**:
+1. DEFINE GITHUB DATA STRUCTS
+2. IMPLEMENT FETCH LATEST RELEASE
+3. TEST WITH STARSIP REPO
+4. COMMIT: "GitHub release parsing"
+*** Project Connection**:
+Parses GitHub release metadata.
+
+***** Day 39 (Tue) - Download & Install Assets
+*** TODO
+** To-Do**:
+1. IMPLEMENT DOWNLOAD FUNCTION
+2. ADD TYPE-SPECIFIC INSTALL (tarball, deb, appimage)
+3. TEST DOWNLOAD
+4. COMMIT: "GitHub asset installation"
+*** Project Connection**:
+Installs packages from GitHub releases.
+
+***** Day 40 (Wed) - GitHub Tracking File
+*** TODO
+** To-Do**:
+1. IMPLEMENT TRACKING FILE
+2. MODIFY GITHUB BACKEND TO USE TRACKING
+3. COMMIT: "GitHub tracking file"
+*** Project Connection**:
+Tracks which versions are installed.
+
+***** Day 41 (Thu) - Parse GitHub Entries
+*** TODO
+** To-Do**:
+1. UPDATE PARSER FOR GITHUB FORMAT
+2. HANDLE SPECIAL SYNTAX: `name = "url" {"type": "tarball"}`
+3. TEST WITH SAMPLE ENTRIES
+4. COMMIT: "Parse GitHub entries"
+*** Project Connection**:
+Understands your special group file syntax.
+
+***** Day 42 (Fri) - Full GitHub Backend Test
+*** TODO
+** To-Do**:
+1. END-TO-END TEST WITH GITHUB ENTRY
+2. IMPLEMENT PATH VALIDATION (security!)
+3. TEST INSTALL OF SOMETHING SMALL (bat/starship)
+4. COMMIT: "Complete GitHub backend"
+*** Project Connection**:
+Full GitHub release support.
+
+*** Phase 4: Quality & Finish (Weeks 9-10)
+This phase ensures polish and correctness.
+
+**** Week 9 - Testing & Documentation
+***** Day 49 (Sun) - Unit Testing
+*** TODO
+** Read**: TRPL Ch 11
+** To-Do**:
+1. TEST PARSER FUNCTIONS
+2. TEST SYNC LOGIC
+3. TEST CONFIG PARSING
+4. RUN `cargo test`
+5. COMMIT: "Parser unit tests"
+*** Project Connection**:
+Catches bugs early.
+
+***** Day 50 (Mon) - More Tests
+*** TODO
+** To-Do**:
+1. TEST CONFIG LOADING
+2. TEST SECURITY VALIDATION
+3. RUN ALL TESTS
+4. COMMIT: "Sync and config tests"
+*** Project Connection**:
+Ensures robust error handling.
+
+***** Day 51 (Tue) - Integration Test
+*** TODO
+** To-Do**:
+1. CREATE `tests/integration_test.rs`
+2. TEST CLI HELP
+3. TEST DRY-RUN
+4. COMMIT: "Integration tests"
+*** Project Connection**:
+Tests real command-line usage.
+
+***** Day 52 (Wed) - Error Messages & Edge Cases
+*** TODO
+** To-Do**:
+1. TEST MISSING CONFIG FILE
+2. TEST MALFORMED GROUP FILE
+3. TEST NONEXISTENT BACKEND
+4. TEST NO INTERNET (GitHub)
+5. COMMIT: "Improve error messages"
+*** Project Connection**:
+Helps users understand issues.
+
+***** Day 53 (Thu) - README & --help Documentation
+*** TODO
+** To-Do**:
+1. UPDATE README FOR RUST VERSION
+2. ADD DOC COMMENTS TO ALL PUBLIC FUNCTIONS
+3. ENSURE `--help` IS COMPREHENSIVE
+4. COMMIT: "Add documentation"
+*** Project Connection**:
+Self-documenting for future contributors.
+
+***** Day 54 (Fri) - Clippy & Final Polish
+*** TODO
+** To-Do**:
+1. RUN `cargo clippy -- -W clippy::all`
+2. FIX ALL WARNINGS
+3. RUN `cargo fmt`
+4. REMOVE ALL `todo!()` AND `unwrap()` IN NON-TEST CODE
+5. COMMIT: "Final polish"
+*** Project Connection**:
+Meets production quality standards.
+
+**** Week 10 — Buffer & Stretch Goals
+* Use these days for:
+  - Catching up on delays
+  - Bug fixes
+  - Stretch goals:
+    - Add progress bars with `indicatif`
+    - Support `Brewfile`-style imports
+    - Generate shell completions (clap can do this)
+    - Parallel backend queries with `rayon` crate
+
+*** Milestone Checkpoints
+| End of Week | You Should Be Able To... |
+|---|---|
+| **Week 1** | Explain ownership, write structs/enums, pass related Rustlings |
+| **Week 2** | Have a compiling project skeleton with all types defined |
+| **Week 3** | `cargo run` parses `config.toml` and all group files |
+| **Week 4** | CLI parses all flags, at least 3 backends working |
+| **Week 5** | `cargo run -- sync --dry-run` shows real sync plan |
+| **Week 6** | All commands (sync, clean, unmanaged, orphans) work |
+| **Week 7** | GitHub releases download and install |
+| **Week 8** | Hooks, bloatware, security, all backends — feature complete |
+| **Week 9** | Tests pass, docs written, edge cases handled |
+| **Week 10** | Polished, clipped, formatted, ready to submit |
+
+*** Java → Rust Quick Reference Card
+* Keep this open while coding:
+  ```
+  Java                          Rust
+  ─────────────────────────────────────────────
+  class Foo { }                 struct Foo { }
+  interface Bar { }             trait Bar { }
+  implements Bar                impl Bar for Foo
+  extends Parent                (use composition)
+  new Foo()                     Foo { field: value } or Foo::new()
+  this                          self
+  null                          None (via Option<T>)
+  try/catch                     Result<T, E> + ?
+  ArrayList<T>                  Vec<T>
+  HashMap<K,V>                  HashMap<String, Vec<String>>  // Note nested types
+  String                        String (owned) / &str (borrowed)
+  final                         (default — immutable is safe)
+  (mutable)                     let mut
+  System.out.println()          println!()
+  for (T x : list)              for x in &list
+  lambda: x -> x+1              closure: |x| x+1
+  throws Exception              -> Result<T, E>
+  @Override                     (automatic when impl trait)
+  package / import              mod / use
+  public                        pub
+  private                       (default — security first!)
+  ```
+
+*** Common Traps to Avoid
+1. **Don't fight the borrow checker** — if it says no, you have a design issue. Clone early, optimize later.
+2. **Don't use `unwrap()` in production code** — use `?` or `match`. Every `unwrap()` is a potential crash.
+3. **Don't over-engineer lifetimes** — if adding `'a` everywhere, you should clone instead.
+4. **Don't skip `cargo clippy`** — it teaches idiomatic Rust better than any book.
+5. **Read compiler errors top-to-bottom** — they're the best in any language and tell you how to fix them.
+
+*** Final Notes
+- **Stick to the plan** — 30 minutes daily beats 3-hour cram sessions
+- **When stuck**, write a failing test first, then make it pass
+- **Your Java experience is an asset** — Rust's patterns will feel familiar
+- **Ask for help** on r/rust or #rust-beginners on Discord
+- **Congratulations in advance** — you're building something impressive!
+
+🚀 Start Day 1 on Sunday. Good luck! 
+```
+
+To use this:
+1. Save as `rust-linix-plan.org`
+2. Open in Emacs (or any Org-compatible tool)
+3. Use `TAB` to fold/unfold sections
+4. Mark tasks with `TODO` → `IN-PROGRESS` → `DONE` (Ctrl-c Ctrl-t)
+5. Track progress with the milestone table
+
+This format gives you:
+- Clean hierarchy for easy navigation
+- Task tracking for daily progress
+- Embedded code blocks you can execute
+- Milestone checks to stay on track
+- All original content preserved perfectly
+
+Enjoy your Rust journey! 🦀

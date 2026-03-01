@@ -1,0 +1,619 @@
+#+TITLE: Rust Syntax Cheat Sheet
+#+AUTHOR: A Dedicated Professor Who Wants You to Succeed
+#+DATE: 2024
+#+OPTIONS: toc:nil num:nil
+
+* Variables & Mutability
+#+BEGIN_EXAMPLE
+let x = 5;              // Immutable (default)
+let mut y = 5;          // Mutable
+const MAX: u32 = 100;   // Constant (type required)
+#+END_EXAMPLE
+
+* Types
+#+BEGIN_EXAMPLE
+// Integers
+let a: i32 = -42;       // Signed 32-bit
+let b: u64 = 42;        // Unsigned 64-bit
+let c: usize = 42;      // Pointer-sized (use for indexing)
+
+// Floats
+let d: f64 = 3.14;      // 64-bit float (default)
+
+// Booleans & Characters
+let e: bool = true;
+let f: char = '🦀';
+
+// Strings
+let s1: &str = "hello";           // String slice (borrowed)
+let s2: String = String::from("hello");  // Owned string
+let s3 = "hello".to_string();     // Also owned
+
+// Collections
+let v1: Vec<i32> = Vec::new();    // Empty vector
+let v2 = vec![1, 2, 3];           // Vector with values
+let v3 = Vec::with_capacity(100); // Pre-allocated
+
+let mut map: HashMap<String, i32> = HashMap::new();
+let mut set: HashSet<String> = HashSet::new();
+#+END_EXAMPLE
+
+* Ownership & Borrowing
+#+BEGIN_EXAMPLE
+// Ownership
+let s1 = String::from("hello");
+let s2 = s1;            // s1 is MOVED, no longer valid
+
+// Borrowing (immutable)
+let s1 = String::from("hello");
+let s2 = &s1;           // s2 borrows s1
+let s3 = &s1;           // Multiple immutable borrows OK
+
+// Borrowing (mutable)
+let mut s1 = String::from("hello");
+let s2 = &mut s1;       // Only ONE mutable borrow allowed
+
+// Cloning
+let s1 = String::from("hello");
+let s2 = s1.clone();    // Explicit deep copy
+#+END_EXAMPLE
+
+* Functions
+#+BEGIN_EXAMPLE
+// Basic function
+fn add(a: i32, b: i32) -> i32 {
+    a + b  // Implicit return (no semicolon)
+}
+
+// With explicit return
+fn subtract(a: i32, b: i32) -> i32 {
+    return a - b;  // Explicit return (early return)
+}
+
+// Borrowing parameters
+fn print_length(s: &str) {              // Immutable borrow
+    println!("{}", s.len());
+}
+
+fn append(s: &mut String, suffix: &str) { // Mutable borrow
+    s.push_str(suffix);
+}
+
+fn consume(s: String) {                 // Takes ownership
+    println!("{}", s);
+}  // s is dropped here
+
+// No return value (returns unit type `()`)
+fn do_nothing() {
+    println!("Nothing");
+}
+#+END_EXAMPLE
+
+* Structs
+#+BEGIN_EXAMPLE
+// Definition
+#[derive(Debug, Clone, PartialEq)]
+struct Package {
+    name: String,
+    version: Option<String>,
+    installed: bool,
+}
+
+// Instantiation
+let pkg1 = Package {
+    name: String::from("vim"),
+    version: Some(String::from("9.0")),
+    installed: true,
+};
+
+// Field init shorthand
+let name = String::from("git");
+let pkg2 = Package {
+    name,  // Same as name: name
+    version: None,
+    installed: false,
+};
+
+// Update syntax
+let pkg3 = Package {
+    installed: true,
+    ..pkg1  // Copy remaining fields from pkg1
+};
+
+// Methods
+impl Package {
+    fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            version: None,
+            installed: false,
+        }
+    }
+    
+    fn is_installed(&self) -> bool {
+        self.installed
+    }
+    
+    fn mark_installed(&mut self) {
+        self.installed = true;
+    }
+    
+    fn with_version(mut self, v: &str) -> Self {
+        self.version = Some(v.to_string());
+        self  // Builder pattern
+    }
+}
+
+// Usage
+let pkg = Package::new("vim")
+    .with_version("9.0");
+#+END_EXAMPLE
+
+* Enums
+#+BEGIN_EXAMPLE
+// Simple enum
+#[derive(Debug, Clone, PartialEq)]
+enum Backend {
+    Apt,
+    Pacman,
+    Pip,
+}
+
+// Enum with data
+enum OperationResult {
+    Success(String),                    // Tuple variant
+    Failed { pkg: String, error: String }, // Struct variant
+    Skipped,                            // Unit variant
+}
+
+// Pattern matching
+let result = OperationResult::Success(String::from("vim"));
+match result {
+    OperationResult::Success(pkg) => println!("Installed {}", pkg),
+    OperationResult::Failed { pkg, error } => {
+        println!("Failed to install {}: {}", pkg, error)
+    }
+    OperationResult::Skipped => println!("Skipped"),
+}
+#+END_EXAMPLE
+
+* Option<T>
+#+BEGIN_EXAMPLE
+let some_value: Option<i32> = Some(5);
+let no_value: Option<i32> = None;
+
+// Pattern matching
+match some_value {
+    Some(v) => println!("Value: {}", v),
+    None => println!("No value"),
+}
+
+// if let
+if let Some(v) = some_value {
+    println!("Value: {}", v);
+}
+
+// Methods
+some_value.is_some();           // true
+some_value.is_none();           // false
+some_value.unwrap();            // 5 (panics if None)
+some_value.unwrap_or(0);        // 5, or 0 if None
+some_value.unwrap_or_else(|| 0); // Lazy default
+some_value.expect("msg");       // Like unwrap, custom panic message
+
+// Transforming
+some_value.map(|x| x * 2);      // Some(10)
+some_value.and_then(|x| Some(x * 2)); // Chaining
+
+// ? operator (propagate None)
+fn get_value() -> Option<i32> {
+    let v = some_function()?;  // Returns None if some_function is None
+    Some(v * 2)
+}
+#+END_EXAMPLE
+
+* Result<T, E>
+#+BEGIN_EXAMPLE
+use std::fs::File;
+
+let file: Result<File, std::io::Error> = File::open("file.txt");
+
+// Pattern matching
+match file {
+    Ok(f) => println!("Opened file"),
+    Err(e) => println!("Error: {}", e),
+}
+
+// if let
+if let Ok(f) = file {
+    println!("Opened file");
+}
+
+// Methods
+file.is_ok();              // bool
+file.is_err();             // bool
+file.unwrap();             // Panics if Err
+file.expect("msg");        // Panics with custom message if Err
+file.unwrap_or(default);   // Returns default if Err
+file.unwrap_or_else(|e| default); // Lazy default
+
+// ? operator (propagate errors)
+fn read_file() -> Result<String, std::io::Error> {
+    let mut file = File::open("file.txt")?;  // Returns Err early
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    Ok(contents)
+}
+
+// map and map_err
+file.map(|f| f.metadata())          // Transform Ok value
+    .map_err(|e| MyError::from(e)); // Transform Err value
+#+END_EXAMPLE
+
+* Control Flow
+#+BEGIN_EXAMPLE
+// if (expression)
+let number = if condition { 5 } else { 6 };
+
+// if let
+if let Some(x) = option_value {
+    println!("{}", x);
+}
+
+// match
+match value {
+    1 => println!("One"),
+    2 | 3 => println!("Two or three"),  // Multiple patterns
+    4..=10 => println!("Four through ten"), // Range
+    x if x > 10 => println!("Greater than 10"), // Guard
+    _ => println!("Something else"),  // Catch-all
+}
+
+// Loops
+loop {
+    break;  // Exit loop
+}
+
+let result = loop {
+    break 42;  // Return value from loop
+};
+
+while condition {
+    // ...
+}
+
+for item in collection {
+    // ...
+}
+
+for (i, item) in collection.iter().enumerate() {
+    // i is index, item is value
+}
+
+for i in 0..10 {     // 0 to 9 (exclusive)
+    // ...
+}
+
+for i in 0..=10 {    // 0 to 10 (inclusive)
+    // ...
+}
+
+// Loop labels
+'outer: for x in 0..10 {
+    for y in 0..10 {
+        if condition {
+            break 'outer;  // Break out of outer loop
+        }
+    }
+}
+#+END_EXAMPLE
+
+* Iterators
+#+BEGIN_EXAMPLE
+let v = vec![1, 2, 3, 4, 5];
+
+// Creating iterators
+v.iter()         // Borrows &T
+v.iter_mut()     // Borrows &mut T
+v.into_iter()    // Takes ownership T
+
+// Transforming (returns new iterator)
+v.iter().map(|x| x * 2)
+v.iter().filter(|x| *x > 2)
+v.iter().filter_map(|x| some_fn(x))  // Filter + map
+v.iter().enumerate()  // Pairs with index: (usize, &T)
+v.iter().take(3)      // First 3 elements
+v.iter().skip(2)      // Skip first 2
+v.iter().zip(other)   // Pair with another iterator
+
+// Consuming (produces final value)
+v.iter().collect::<Vec<_>>()  // Collect into Vec
+v.iter().count()              // Count elements
+v.iter().sum()                // Sum (for numeric types)
+v.iter().product()            // Product
+v.iter().find(|x| **x > 2)    // First matching element
+v.iter().any(|x| *x > 2)      // true if any match
+v.iter().all(|x| *x > 0)      // true if all match
+v.iter().fold(0, |acc, x| acc + x)  // Reduce
+
+// Chaining
+let result: Vec<_> = v.iter()
+    .filter(|x| **x > 2)
+    .map(|x| x * 2)
+    .collect();
+#+END_EXAMPLE
+
+* Error Handling Patterns
+#+BEGIN_EXAMPLE
+// With thiserror
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+enum MyError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    
+    #[error("Parse error at line {line}: {msg}")]
+    Parse { line: usize, msg: String },
+}
+
+// With anyhow
+use anyhow::{Result, Context};
+
+fn load_config() -> Result<Config> {
+    let content = std::fs::read_to_string(path)
+        .context("Failed to read config file")?;
+    let config = parse(&content)
+        .context("Failed to parse config")?;
+    Ok(config)
+}
+
+// bail! macro (early return with error)
+use anyhow::bail;
+
+if invalid {
+    bail!("Invalid configuration");
+}
+
+// ensure! macro (assert with error)
+use anyhow::ensure;
+
+ensure!(value > 0, "Value must be positive");
+#+END_EXAMPLE
+
+* Traits
+#+BEGIN_EXAMPLE
+// Define trait
+trait Summary {
+    fn summarize(&self) -> String;
+    
+    // Default implementation
+    fn default_summary(&self) -> String {
+        String::from("(Read more...)")
+    }
+}
+
+// Implement trait
+impl Summary for Article {
+    fn summarize(&self) -> String {
+        format!("{} by {}", self.headline, self.author)
+    }
+}
+
+// Trait bounds
+fn print_summary<T: Summary>(item: &T) {
+    println!("{}", item.summarize());
+}
+
+// Multiple bounds
+fn notify<T: Summary + Display>(item: &T) {
+    // ...
+}
+
+// Where clause (cleaner for complex bounds)
+fn some_function<T, U>(t: &T, u: &U) -> i32
+where
+    T: Display + Clone,
+    U: Clone + Debug,
+{
+    // ...
+}
+
+// Trait objects (dynamic dispatch)
+let items: Vec<Box<dyn Summary>> = vec![
+    Box::new(article),
+    Box::new(tweet),
+];
+#+END_EXAMPLE
+
+* Common Derives
+#+BEGIN_EXAMPLE
+#[derive(Debug)]        // Enable {:?} formatting
+#[derive(Clone)]        // Enable .clone()
+#[derive(Copy)]         // Implicit copy (only for stack types)
+#[derive(PartialEq)]    // Enable == and !=
+#[derive(Eq)]           // Full equality (requires PartialEq)
+#[derive(Hash)]         // Enable use as HashMap key
+#[derive(Default)]      // Enable Default::default()
+#[derive(PartialOrd)]   // Enable <, >, <=, >=
+#[derive(Ord)]          // Total ordering (requires PartialOrd + Eq)
+
+// Serde
+#[derive(Serialize, Deserialize)]
+
+// Clap
+#[derive(Parser)]
+#[derive(Subcommand)]
+
+// thiserror
+#[derive(Error)]
+#+END_EXAMPLE
+
+* Modules
+#+BEGIN_EXAMPLE
+// In src/main.rs or src/lib.rs
+mod config;           // Loads src/config.rs or src/config/mod.rs
+pub mod backends;     // Public module
+
+// In src/backends/mod.rs
+mod apt;
+mod pacman;
+pub use apt::AptManager;       // Re-export
+pub use pacman::PacmanManager;
+
+// Using modules
+use crate::config::Config;           // From crate root
+use crate::backends::AptManager;
+use super::parent_module;            // From parent
+use self::child_module;              // From current module
+
+// Glob import
+use crate::prelude::*;
+#+END_EXAMPLE
+
+* Testing
+#+BEGIN_EXAMPLE
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_something() {
+        assert!(true);
+        assert_eq!(actual, expected);
+        assert_ne!(actual, unexpected);
+    }
+
+    #[test]
+    fn test_with_result() -> Result<()> {
+        let value = might_fail()?;
+        assert_eq!(value, expected);
+        Ok(())
+    }
+
+    #[test]
+    #[should_panic(expected = "message")]
+    fn test_panic() {
+        panic!("message");
+    }
+
+    #[test]
+    #[ignore]  // Skip unless --ignored
+    fn expensive_test() {
+        // ...
+    }
+}
+
+// Async test
+#[tokio::test]
+async fn test_async() {
+    let result = async_fn().await;
+    assert!(result.is_ok());
+}
+#+END_EXAMPLE
+
+* Async
+#+BEGIN_EXAMPLE
+// Async function
+async fn fetch_data() -> Result<Data> {
+    let response = reqwest::get(url).await?;
+    let data = response.json().await?;
+    Ok(data)
+}
+
+// Async main
+#[tokio::main]
+async fn main() {
+    let data = fetch_data().await;
+}
+
+// Concurrent execution
+let (a, b, c) = tokio::join!(fut_a, fut_b, fut_c);
+
+// Spawn task
+let handle = tokio::spawn(async {
+    // work
+});
+let result = handle.await?;
+
+// Select (race)
+tokio::select! {
+    result = operation => println!("Op done: {:?}", result),
+    _ = tokio::time::sleep(Duration::from_secs(5)) => println!("Timeout"),
+}
+#+END_EXAMPLE
+
+* Useful Macros
+#+BEGIN_EXAMPLE
+println!("Hello, {}!", name);        // Print with newline
+print!("No newline");                // Print without newline
+eprintln!("Error: {}", err);         // Print to stderr
+format!("String: {}", value);        // Create formatted String
+
+dbg!(variable);                      // Debug print with location
+dbg!(&variable);                     // Debug print without moving
+
+vec![1, 2, 3];                       // Create vector
+format!("x = {}", x);                // Format string
+
+panic!("Something went wrong");      // Panic with message
+unimplemented!();                    // Placeholder panic
+todo!();                             // TODO panic
+unreachable!();                      // Mark unreachable code
+
+assert!(condition);                  // Assert in all builds
+debug_assert!(condition);            // Assert only in debug builds
+#+END_EXAMPLE
+
+* String Conversions
+#+BEGIN_EXAMPLE
+// &str → String
+let s: String = "hello".to_string();
+let s: String = String::from("hello");
+let s: String = "hello".to_owned();
+
+// String → &str
+let s: &str = &string;
+let s: &str = string.as_str();
+
+// i32 → String
+let s: String = 42.to_string();
+let s: String = format!("{}", 42);
+
+// String → i32
+let n: i32 = "42".parse().unwrap();
+let n: i32 = "42".parse::<i32>().unwrap();
+
+// PathBuf ↔ &Path
+let path: PathBuf = PathBuf::from("/path");
+let path_ref: &Path = &path;
+let path_ref: &Path = path.as_path();
+#+END_EXAMPLE
+
+* HashMap Patterns
+#+BEGIN_EXAMPLE
+use std::collections::HashMap;
+
+let mut map = HashMap::new();
+
+// Insert
+map.insert(key, value);
+
+// Get
+let value = map.get(&key);           // Option<&V>
+let value = map.get(&key).unwrap();  // &V (panics if missing)
+let value = &map[&key];              // &V (panics if missing)
+
+// Entry API (efficient conditional operations)
+map.entry(key).or_insert(default);  // Insert if missing
+map.entry(key).or_insert_with(|| compute()); // Lazy insert
+
+map.entry(key)
+    .and_modify(|v| *v += 1)  // Modify if present
+    .or_insert(0);            // Insert if missing
+
+// Iteration
+for (key, value) in &map { }
+for key in map.keys() { }
+for value in map.values() { }
+#+END_EXAMPLE

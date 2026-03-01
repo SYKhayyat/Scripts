@@ -1,0 +1,1310 @@
+**RUST 301: Systems Programming via Package Manager Development**  
+**Course Duration:** 16 Weeks (112 Days)  
+**Daily Commitment:** 30 minutes  
+**Instructor:** Your Friendly Neighborhood Professor  
+**Office Hours:** Stack Overflow (but read the compiler errors first)
+
+---
+
+## **SYLLABUS**
+
+### **Required Materials:**
+1. *The Rust Programming Language* ("The Book") - https://doc.rust-lang.org/book/
+2. Rust Playground - https://play.rust-lang.org/
+3. Your chosen IDE with `rust-analyzer` installed
+4. A notebook. Paper. For drawing ownership diagrams.
+
+### **Grading:**
+- **40%** - Daily exercises compile without warnings
+- **30%** - `metapac` project milestones
+- **20%** - Understanding compiler errors (yes, I grade this)
+- **10%** - Asking good questions
+
+---
+
+## **WEEK 1: Boot Camp**
+**Theme:** "Hello, World" and the Toolchain
+
+### **Day 1 (Monday)**
+- **Material:** Install Rust (`rustup`), verify with `rustc --version`
+- **Reading:** Book Ch 1.1-1.2 (10 min)
+- **Exercise:** `cargo new hello_rust`, run it, examine `Cargo.toml` (20 min)
+- **Deliverable:** Screenshot of "Hello, world!" output
+
+### **Day 2**
+- **Material:** Variables and Mutability
+- **Reading:** Book Ch 3.1 (10 min)
+- **Exercise:** (20 min)
+```rust
+fn main() {
+    let x = 5;
+    println!("x is {}", x);
+    x = 6; // This will fail. Fix it.
+}
+```
+- **Key Concept:** `let` vs `let mut`. Java doesn't have this distinction.
+
+### **Day 3**
+- **Material:** Data Types (Scalar)
+- **Reading:** Book Ch 3.2 (10 min)
+- **Exercise:** Write a program that converts Celsius to Fahrenheit. Use `f64`. (20 min)
+- **Key Concept:** Type inference vs explicit typing
+
+### **Day 4**
+- **Material:** Functions
+- **Reading:** Book Ch 3.3 (10 min)
+- **Exercise:** (20 min)
+```rust
+fn add(a: i32, b: i32) -> i32 {
+    a + b  // No semicolon! This is an expression.
+}
+```
+Write three math functions. Notice the lack of `return` keyword.
+- **Key Concept:** Statements vs Expressions (Java doesn't distinguish; Rust does)
+
+### **Day 5**
+- **Material:** Control Flow (if/else)
+- **Reading:** Book Ch 3.5 (10 min)
+- **Exercise:** FizzBuzz. (20 min)
+- **Key Concept:** `if` is an expression in Rust. You can do `let x = if condition { 5 } else { 6 };`
+
+### **Day 6 (Saturday)**
+- **Material:** Loops
+- **Reading:** Book Ch 3.5 (continuation) (10 min)
+- **Exercise:** (20 min)
+```rust
+// Rewrite this Java loop in Rust:
+// for (int i = 0; i < 10; i++) { ... }
+```
+Learn `loop`, `while`, and `for` in Rust.
+
+### **Day 7 (Sunday)**
+- **Review Day:** Redo Days 2-6 exercises from memory without looking at solutions.
+- **Reflection:** Write three sentences about what felt weird coming from Java.
+
+---
+
+## **WEEK 2: Ownership (The Crucible Begins)**
+**Theme:** "Why does Java not have this problem?"
+
+### **Day 8**
+- **Material:** Ownership Rules
+- **Reading:** Book Ch 4.1 (15 min)
+- **Exercise:** (15 min)
+```rust
+fn main() {
+    let s1 = String::from("hello");
+    let s2 = s1;
+    println!("{}", s1); // This will fail. Why?
+}
+```
+- **Key Concept:** Move semantics. In Java, this would work because references are copied, not moved.
+
+### **Day 9**
+- **Material:** `String` vs `&str`
+- **Reading:** Book Ch 4.1 (reread slowly) (15 min)
+- **Exercise:** (15 min)
+```rust
+let s1 = String::from("hello"); // Heap-allocated, mutable
+let s2 = "hello"; // Stack-allocated, immutable
+```
+Explain the difference in your notebook. Draw memory diagrams.
+
+### **Day 10**
+- **Material:** Clone vs Copy
+- **Reading:** Book Ch 4.1 (finish) (10 min)
+- **Exercise:** (20 min)
+```rust
+let x = 5;
+let y = x; // This works. Why?
+
+let s1 = String::from("hello");
+let s2 = s1.clone(); // This works. Why is clone() needed?
+```
+- **Key Concept:** Primitive types implement `Copy`. `String` does not.
+
+### **Day 11**
+- **Material:** References and Borrowing
+- **Reading:** Book Ch 4.2 (15 min)
+- **Exercise:** (15 min)
+```rust
+fn main() {
+    let s1 = String::from("hello");
+    let len = calculate_length(&s1);
+    println!("Length of '{}' is {}", s1, len);
+}
+
+fn calculate_length(s: &String) -> usize {
+    s.len()
+}
+```
+- **Key Concept:** `&` borrows without taking ownership.
+
+### **Day 12**
+- **Material:** Mutable References
+- **Reading:** Book Ch 4.2 (continuation) (10 min)
+- **Exercise:** (20 min)
+```rust
+fn main() {
+    let mut s = String::from("hello");
+    change(&mut s);
+}
+
+fn change(s: &mut String) {
+    s.push_str(", world");
+}
+```
+Try to create two mutable references to `s`. Watch the compiler stop you.
+- **Key Concept:** ONE mutable reference OR multiple immutable references. Never both.
+
+### **Day 13**
+- **Material:** The Rules of References
+- **Reading:** Reread Book Ch 4.2, taking notes (15 min)
+- **Exercise:** (15 min)
+```rust
+fn main() {
+    let mut s = String::from("hello");
+    let r1 = &s;
+    let r2 = &s;
+    let r3 = &mut s; // Error! Why?
+    println!("{}, {}, {}", r1, r2, r3);
+}
+```
+Fix this code. Understand *scopes* of references.
+
+### **Day 14**
+- **Review Day:** Draw ownership diagrams for all Week 2 exercises.
+- **Reflection:** Write a paragraph explaining ownership to your past self from Day 1.
+
+---
+
+## **WEEK 3: Compound Types & Project Setup**
+**Theme:** "Data structures that own themselves"
+
+### **Day 15**
+- **Material:** Structs
+- **Reading:** Book Ch 5.1 (15 min)
+- **Exercise:** (15 min)
+```rust
+struct Package {
+    name: String,
+    version: String,
+}
+
+fn main() {
+    let pkg = Package {
+        name: String::from("vim"),
+        version: String::from("9.0"),
+    };
+}
+```
+
+### **Day 16**
+- **Material:** Methods
+- **Reading:** Book Ch 5.3 (10 min)
+- **Exercise:** (20 min)
+```rust
+impl Package {
+    fn display(&self) {
+        println!("{} v{}", self.name, self.version);
+    }
+}
+```
+Add a constructor method `new(name: String, version: String) -> Package`.
+
+### **Day 17**
+- **Material:** Enums
+- **Reading:** Book Ch 6.1 (15 min)
+- **Exercise:** (15 min)
+```rust
+enum PackageManager {
+    Apt,
+    Pacman,
+    Homebrew,
+}
+```
+- **Key Concept:** Enums in Rust are *algebraic data types*, not just named integers like Java.
+
+### **Day 18**
+- **Material:** `Option<T>`
+- **Reading:** Book Ch 6.1 (continuation) (10 min)
+- **Exercise:** (20 min)
+```rust
+fn find_package(name: &str) -> Option<Package> {
+    if name == "vim" {
+        Some(Package { name: String::from("vim"), version: String::from("9.0") })
+    } else {
+        None
+    }
+}
+```
+- **Key Concept:** Rust has no `null`. `Option` is the replacement.
+
+### **Day 19**
+- **Material:** `match` Expressions
+- **Reading:** Book Ch 6.2 (15 min)
+- **Exercise:** (15 min)
+```rust
+match find_package("vim") {
+    Some(pkg) => pkg.display(),
+    None => println!("Package not found"),
+}
+```
+- **Key Concept:** `match` is exhaustive. You must handle all cases.
+
+### **Day 20**
+- **PROJECT:** `cargo new metapac`
+- **Task:** (30 min)
+  - Create `src/main.rs`
+  - Create a `Package` struct
+  - Create a `PackageManager` enum
+  - Print "Metapac v0.1.0" in `main()`
+
+### **Day 21**
+- **Review Day:** Refactor your `metapac` code. Run `cargo clippy` and fix all warnings.
+- **Reflection:** What does `clippy` complain about that Java IDEs don't?
+
+---
+
+## **WEEK 4: Error Handling**
+**Theme:** "No more try/catch"
+
+### **Day 22**
+- **Material:** `Result<T, E>`
+- **Reading:** Book Ch 9.2 (15 min)
+- **Exercise:** (15 min)
+```rust
+use std::fs::File;
+
+fn main() {
+    let f = File::open("hello.txt");
+    
+    let f = match f {
+        Ok(file) => file,
+        Err(error) => panic!("Problem opening file: {:?}", error),
+    };
+}
+```
+
+### **Day 23**
+- **Material:** The `?` Operator
+- **Reading:** Book Ch 9.2 (continuation) (10 min)
+- **Exercise:** (20 min)
+```rust
+use std::fs::File;
+use std::io::Read;
+
+fn read_file() -> Result<String, std::io::Error> {
+    let mut f = File::open("hello.txt")?;
+    let mut s = String::new();
+    f.read_to_string(&mut s)?;
+    Ok(s)
+}
+```
+- **Key Concept:** `?` is syntactic sugar for the `match` you wrote yesterday.
+
+### **Day 24**
+- **Material:** Custom Error Types
+- **Reading:** Research `thiserror` crate (15 min)
+- **Exercise:** Add to `Cargo.toml`: (15 min)
+```toml
+[dependencies]
+thiserror = "1.0"
+```
+Create a custom error enum for your package manager.
+
+### **Day 25**
+- **Material:** Propagating Errors
+- **Exercise:** (30 min)
+```rust
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+enum MetapacError {
+    #[error("Package not found: {0}")]
+    NotFound(String),
+    #[error("IO error")]
+    Io(#[from] std::io::Error),
+}
+```
+
+### **Day 26**
+- **PROJECT:** Add error handling to `metapac`
+- **Task:** (30 min)
+  - Create `MetapacError` enum
+  - Make functions return `Result<T, MetapacError>`
+  - Use `?` operator
+
+### **Day 27**
+- **Material:** `unwrap()` vs `expect()` vs `?`
+- **Exercise:** (30 min)
+  - When is `unwrap()` acceptable? (Answer: Almost never in production)
+  - Refactor all `unwrap()` calls in `metapac` to proper error handling
+
+### **Day 28**
+- **Review Day:** Read through Rust Error Handling Best Practices article
+- **Reflection:** How does this compare to Java's checked vs unchecked exceptions?
+
+---
+
+## **WEEK 5: Collections & File I/O**
+**Theme:** "Actually doing something useful"
+
+### **Day 29**
+- **Material:** `Vec<T>`
+- **Reading:** Book Ch 8.1 (15 min)
+- **Exercise:** (15 min)
+```rust
+let mut packages = Vec::new();
+packages.push(Package { name: String::from("vim"), version: String::from("9.0") });
+```
+
+### **Day 30**
+- **Material:** `HashMap<K, V>`
+- **Reading:** Book Ch 8.3 (15 min)
+- **Exercise:** (15 min)
+```rust
+use std::collections::HashMap;
+
+let mut versions = HashMap::new();
+versions.insert("vim", "9.0");
+```
+
+### **Day 31**
+- **Material:** Reading Files
+- **Reading:** Book Ch 12.3 (10 min)
+- **Exercise:** (20 min)
+```rust
+use std::fs;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let contents = fs::read_to_string("packages.txt")?;
+    println!("{}", contents);
+    Ok(())
+}
+```
+
+### **Day 32**
+- **Material:** Introduction to `serde`
+- **Reading:** serde.rs documentation (15 min)
+- **Exercise:** Add to `Cargo.toml`: (15 min)
+```toml
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+```
+
+### **Day 33**
+- **Material:** Serialization
+- **Exercise:** (30 min)
+```rust
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Package {
+    name: String,
+    version: String,
+}
+
+fn main() {
+    let pkg = Package { name: "vim".to_string(), version: "9.0".to_string() };
+    let json = serde_json::to_string(&pkg).unwrap();
+    println!("{}", json);
+}
+```
+
+### **Day 34**
+- **Material:** Deserialization
+- **Exercise:** (30 min)
+```rust
+let json = r#"{"name":"vim","version":"9.0"}"#;
+let pkg: Package = serde_json::from_str(json)?;
+```
+
+### **Day 35**
+- **PROJECT:** Create `packages.json` config file
+- **Task:** (30 min)
+```json
+{
+  "packages": [
+    {"name": "vim", "version": "9.0"},
+    {"name": "git", "version": "2.40"}
+  ]
+}
+```
+Read this file in `metapac` and deserialize it.
+
+---
+
+## **WEEK 6: Traits (The Interface Revolution)**
+**Theme:** "Polymorphism without inheritance"
+
+### **Day 36**
+- **Material:** Defining Traits
+- **Reading:** Book Ch 10.2 (15 min)
+- **Exercise:** (15 min)
+```rust
+trait Installable {
+    fn install(&self) -> Result<(), MetapacError>;
+}
+```
+
+### **Day 37**
+- **Material:** Implementing Traits
+- **Exercise:** (30 min)
+```rust
+struct AptPackage {
+    name: String,
+}
+
+impl Installable for AptPackage {
+    fn install(&self) -> Result<(), MetapacError> {
+        println!("Running: apt install {}", self.name);
+        Ok(())
+    }
+}
+```
+
+### **Day 38**
+- **Material:** Default Implementations
+- **Reading:** Book Ch 10.2 (continuation) (10 min)
+- **Exercise:** (20 min)
+```rust
+trait Installable {
+    fn install(&self) -> Result<(), MetapacError>;
+    
+    fn status(&self) {
+        println!("Checking status...");
+    }
+}
+```
+
+### **Day 39**
+- **Material:** Trait Bounds
+- **Reading:** Book Ch 10.2 (finish) (15 min)
+- **Exercise:** (15 min)
+```rust
+fn install_package<T: Installable>(pkg: T) -> Result<(), MetapacError> {
+    pkg.install()
+}
+```
+
+### **Day 40**
+- **Material:** `dyn Trait` (Dynamic Dispatch)
+- **Reading:** Research trait objects (15 min)
+- **Exercise:** (15 min)
+```rust
+let packages: Vec<Box<dyn Installable>> = vec![
+    Box::new(AptPackage { name: "vim".to_string() }),
+    Box::new(PacmanPackage { name: "git".to_string() }),
+];
+```
+
+### **Day 41**
+- **PROJECT:** Implement `Installable` trait for each package manager
+- **Task:** (30 min)
+  - Create `AptPackage`, `PacmanPackage`, `HomebrewPackage` structs
+  - Implement `Installable` for each
+  - Store them in a heterogeneous collection
+
+### **Day 42**
+- **Review Day:** Refactor `metapac` to use traits everywhere
+- **Reflection:** How is this different from Java interfaces? (Hint: No inheritance, no `this` keyword issues)
+
+---
+
+## **WEEK 7: Process Execution**
+**Theme:** "Actually running commands"
+
+### **Day 43**
+- **Material:** `std::process::Command`
+- **Reading:** Rust std docs for `Command` (15 min)
+- **Exercise:** (15 min)
+```rust
+use std::process::Command;
+
+let output = Command::new("echo")
+    .arg("Hello from Rust!")
+    .output()?;
+
+println!("{}", String::from_utf8_lossy(&output.stdout));
+```
+
+### **Day 44**
+- **Material:** Capturing stdout/stderr
+- **Exercise:** (30 min)
+```rust
+let output = Command::new("ls")
+    .arg("-la")
+    .output()?;
+
+if output.status.success() {
+    println!("Success!");
+} else {
+    eprintln!("Error: {}", String::from_utf8_lossy(&output.stderr));
+}
+```
+
+### **Day 45**
+- **Material:** Platform-specific commands
+- **Exercise:** (30 min)
+```rust
+#[cfg(target_os = "linux")]
+fn get_package_manager() -> &'static str {
+    "apt"  // Simplified
+}
+
+#[cfg(target_os = "macos")]
+fn get_package_manager() -> &'static str {
+    "brew"
+}
+```
+
+### **Day 46**
+- **PROJECT:** Implement actual `apt install` execution
+- **Task:** (30 min)
+```rust
+impl Installable for AptPackage {
+    fn install(&self) -> Result<(), MetapacError> {
+        let output = Command::new("apt")
+            .arg("install")
+            .arg("-y")
+            .arg(&self.name)
+            .output()?;
+        
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(MetapacError::InstallFailed(self.name.clone()))
+        }
+    }
+}
+```
+
+### **Day 47**
+- **Material:** Checking if package is installed
+- **Exercise:** (30 min)
+```rust
+trait Installable {
+    fn is_installed(&self) -> Result<bool, MetapacError>;
+    fn install(&self) -> Result<(), MetapacError>;
+}
+```
+Implement `is_installed()` using `dpkg -l` or equivalent.
+
+### **Day 48**
+- **Material:** Dry-run mode
+- **Exercise:** (30 min)
+  - Add `--dry-run` flag using `clap` crate
+  - Print what *would* be installed without actually installing
+
+### **Day 49**
+- **Review Day:** Test your package manager with a real package
+- **Reflection:** What could go wrong? (Permissions, network, package doesn't exist...)
+
+---
+
+## **WEEK 8: Iterators & Functional Programming**
+**Theme:** "Data pipelines without loops"
+
+### **Day 50**
+- **Material:** Iterator basics
+- **Reading:** Book Ch 13.2 (15 min)
+- **Exercise:** (15 min)
+```rust
+let nums = vec![1, 2, 3, 4, 5];
+let sum: i32 = nums.iter().sum();
+```
+
+### **Day 51**
+- **Material:** `map()` and `filter()`
+- **Exercise:** (30 min)
+```rust
+let packages = vec!["vim", "git", "htop"];
+let uppercase: Vec<String> = packages
+    .iter()
+    .map(|s| s.to_uppercase())
+    .collect();
+```
+
+### **Day 52**
+- **Material:** `filter_map()` and `flat_map()`
+- **Exercise:** (30 min)
+```rust
+let versions = vec![Some("9.0"), None, Some("2.40")];
+let valid: Vec<&str> = versions
+    .into_iter()
+    .filter_map(|v| v)
+    .collect();
+```
+
+### **Day 53**
+- **Material:** Closures
+- **Reading:** Book Ch 13.1 (15 min)
+- **Exercise:** (15 min)
+```rust
+let add = |a, b| a + b;
+println!("{}", add(5, 3));
+```
+
+### **Day 54**
+- **Material:** Closures capturing environment
+- **Exercise:** (30 min)
+```rust
+let prefix = "pkg_";
+let packages = vec!["vim", "git"];
+let prefixed: Vec<String> = packages
+    .iter()
+    .map(|s| format!("{}{}", prefix, s))
+    .collect();
+```
+
+### **Day 55**
+- **PROJECT:** Refactor package list processing
+- **Task:** (30 min)
+  - Use iterators to filter packages that need installation
+  - Use `map()` to transform config format to internal representation
+
+### **Day 56**
+- **Review Day:** Find all loops in `metapac` and replace with iterators
+- **Reflection:** Which style do you prefer? Why?
+
+---
+
+## **WEEK 9: Set Theory & Sync Logic**
+**Theme:** "Declarative state management"
+
+### **Day 57**
+- **Material:** `HashSet<T>`
+- **Reading:** std::collections::HashSet docs (15 min)
+- **Exercise:** (15 min)
+```rust
+use std::collections::HashSet;
+
+let desired: HashSet<_> = vec!["vim", "git", "htop"].into_iter().collect();
+let installed: HashSet<_> = vec!["vim", "emacs"].into_iter().collect();
+```
+
+### **Day 58**
+- **Material:** Set operations
+- **Exercise:** (30 min)
+```rust
+let to_install: Vec<_> = desired.difference(&installed).collect();
+let to_remove: Vec<_> = installed.difference(&desired).collect();
+let already_installed: Vec<_> = desired.intersection(&installed).collect();
+
+println!("Install: {:?}", to_install);
+println!("Remove: {:?}", to_remove);
+println!("Already installed: {:?}", already_installed);
+```
+
+### **Day 59**
+- **Material:** Implementing `Hash` and `Eq`
+- **Reading:** Research `#[derive(Hash, Eq, PartialEq)]` (10 min)
+- **Exercise:** (20 min)
+```rust
+#[derive(Hash, Eq, PartialEq, Debug)]
+struct Package {
+    name: String,
+    // version is ignored for equality
+}
+```
+
+### **Day 60**
+- **PROJECT:** Implement sync logic
+- **Task:** (30 min)
+```rust
+fn sync(desired: &[Package], installed: &[Package]) -> SyncPlan {
+    let desired_set: HashSet<_> = desired.iter().collect();
+    let installed_set: HashSet<_> = installed.iter().collect();
+    
+    SyncPlan {
+        to_install: desired_set.difference(&installed_set).collect(),
+        to_remove: installed_set.difference(&desired_set).collect(),
+    }
+}
+```
+
+### **Day 61**
+- **Material:** Getting installed packages
+- **Exercise:** (30 min)
+  - Run `dpkg -l` or `brew list`
+  - Parse output into `Vec<Package>`
+
+### **Day 62**
+- **Material:** Integration testing
+- **Exercise:** (30 min)
+  - Create `tests/sync_test.rs`
+  - Test sync logic with various scenarios
+
+### **Day 63**
+- **Review Day:** Full integration test of sync workflow
+- **Reflection:** Draw a flowchart of your sync algorithm
+
+---
+
+## **WEEK 10: Configuration & CLI**
+**Theme:** "User interface"
+
+### **Day 64**
+- **Material:** TOML parsing
+- **Reading:** toml.rs documentation (10 min)
+- **Exercise:** Add to `Cargo.toml`: (20 min)
+```toml
+[dependencies]
+toml = "0.8"
+```
+Parse a TOML file.
+
+### **Day 65**
+- **Material:** Config file structure
+- **Exercise:** (30 min)
+  - Create `metapac.toml` schema
+```toml
+[package_manager]
+type = "apt"
+
+[[packages]]
+name = "vim"
+
+[[packages]]
+name = "git"
+```
+
+### **Day 66**
+- **Material:** `clap` for CLI parsing
+- **Reading:** clap.rs documentation (15 min)
+- **Exercise:** (15 min)
+```toml
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+```
+
+### **Day 67**
+- **Material:** CLI structure
+- **Exercise:** (30 min)
+```rust
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Sync { },
+    List { },
+    Add { name: String },
+}
+```
+
+### **Day 68**
+- **PROJECT:** Wire up CLI to functions
+- **Task:** (30 min)
+```rust
+fn main() -> Result<(), MetapacError> {
+    let cli = Cli::parse();
+    
+    match cli.command {
+        Commands::Sync => sync_packages()?,
+        Commands::List => list_packages()?,
+        Commands::Add { name } => add_package(&name)?,
+    }
+    
+    Ok(())
+}
+```
+
+### **Day 69**
+- **Material:** Colored output
+- **Exercise:** (30 min)
+  - Add `colored` crate
+  - Make install/remove operations visually distinct
+
+### **Day 70**
+- **Review Day:** User testing
+  - Have a friend try to use `metapac`
+  - Fix usability issues
+
+---
+
+## **WEEK 11: Logging & Debugging**
+**Theme:** "Production readiness"
+
+### **Day 71**
+- **Material:** `log` and `env_logger`
+- **Reading:** log crate documentation (15 min)
+- **Exercise:** (15 min)
+```rust
+use log::{info, warn, error};
+
+info!("Starting sync...");
+warn!("Package {} not found", name);
+error!("Failed to install: {}", err);
+```
+
+### **Day 72**
+- **Material:** Log levels
+- **Exercise:** (30 min)
+  - Add `--verbose` flag
+  - Set `RUST_LOG=debug` for debugging
+
+### **Day 73**
+- **Material:** Debugging with `dbg!()`
+- **Exercise:** (30 min)
+```rust
+let packages = get_packages();
+dbg!(&packages);  // Prints debug representation
+```
+
+### **Day 74**
+- **Material:** Unit testing
+- **Reading:** Book Ch 11 (15 min)
+- **Exercise:** (15 min)
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_sync_logic() {
+        // ...
+    }
+}
+```
+
+### **Day 75**
+- **PROJECT:** Write comprehensive tests
+- **Task:** (30 min)
+  - Test config parsing
+  - Test sync logic
+  - Test error handling
+
+### **Day 76**
+- **Material:** Mocking with `mockall`
+- **Exercise:** (30 min)
+  - Mock the `Installable` trait
+  - Test without actually installing packages
+
+### **Day 77**
+- **Review Day:** Achieve >80% test coverage
+- **Reflection:** Run `cargo tarpaulin` if available
+
+---
+
+## **WEEK 12: Async/Await (Optional but Valuable)**
+**Theme:** "Concurrent downloads"
+
+### **Day 78**
+- **Material:** Async basics
+- **Reading:** Book Ch 17 (if available) or async book (15 min)
+- **Exercise:** (15 min)
+```toml
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+```
+
+### **Day 79**
+- **Material:** `async fn`
+- **Exercise:** (30 min)
+```rust
+async fn download_package(url: &str) -> Result<Vec<u8>, MetapacError> {
+    // Simulated async work
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    Ok(vec![])
+}
+```
+
+### **Day 80**
+- **Material:** `tokio::spawn()`
+- **Exercise:** (30 min)
+```rust
+#[tokio::main]
+async fn main() {
+    let handle = tokio::spawn(async {
+        println!("Background task");
+    });
+    handle.await.unwrap();
+}
+```
+
+### **Day 81**
+- **Material:** Concurrent operations
+- **Exercise:** (30 min)
+```rust
+let futures: Vec<_> = packages
+    .iter()
+    .map(|p| download_package(&p.url))
+    .collect();
+
+let results = futures::future::join_all(futures).await;
+```
+
+### **Day 82**
+- **PROJECT:** Parallel package installation
+- **Task:** (30 min)
+  - Install multiple packages concurrently
+  - Show progress for each
+
+### **Day 83**
+- **Material:** Error handling in async
+- **Exercise:** (30 min)
+  - Handle failures in concurrent tasks
+  - Continue on partial failures
+
+### **Day 84**
+- **Review Day:** Benchmark sync vs async installation
+- **Reflection:** When is async worth the complexity?
+
+---
+
+## **WEEK 13: Optimization & Lifetimes**
+**Theme:** "Making it fast and correct"
+
+### **Day 85**
+- **Material:** Explicit lifetimes
+- **Reading:** Book Ch 10.3 (15 min)
+- **Exercise:** (15 min)
+```rust
+fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
+    if x.len() > y.len() { x } else { y }
+}
+```
+
+### **Day 86**
+- **Material:** Lifetime elision
+- **Reading:** Book Ch 10.3 (continuation) (10 min)
+- **Exercise:** (20 min)
+  - Find places in `metapac` where lifetimes are implicit
+  - Write them explicitly for practice
+
+### **Day 87**
+- **Material:** `Cow<'a, T>`
+- **Reading:** std::borrow::Cow docs (15 min)
+- **Exercise:** (15 min)
+```rust
+use std::borrow::Cow;
+
+fn process(input: Cow<str>) -> Cow<str> {
+    if input.contains("special") {
+        Cow::Owned(input.replace("special", "SPECIAL"))
+    } else {
+        input  // No allocation!
+    }
+}
+```
+
+### **Day 88**
+- **Material:** `Arc<T>` and `Rc<T>`
+- **Reading:** Research reference counting (15 min)
+- **Exercise:** (15 min)
+```rust
+use std::rc::Rc;
+
+let data = Rc::new(vec![1, 2, 3]);
+let data2 = Rc::clone(&data);  // Shallow copy
+```
+
+### **Day 89**
+- **PROJECT:** Profile your code
+- **Task:** (30 min)
+  - Use `cargo build --release`
+  - Use `cargo flamegraph` (if available)
+  - Identify bottlenecks
+
+### **Day 90**
+- **Material:** Optimization techniques
+- **Exercise:** (30 min)
+  - Replace `.clone()` with references where possible
+  - Use `String::with_capacity()` for known sizes
+  - Cache expensive operations
+
+### **Day 91**
+- **Review Day:** Benchmark before/after optimizations
+- **Reflection:** Did you actually need those optimizations?
+
+---
+
+## **WEEK 14: Advanced Patterns**
+**Theme:** "Idiomatic Rust"
+
+### **Day 92**
+- **Material:** Builder pattern
+- **Reading:** Research builder pattern in Rust (15 min)
+- **Exercise:** (15 min)
+```rust
+struct PackageBuilder {
+    name: String,
+    version: Option<String>,
+}
+
+impl PackageBuilder {
+    fn new(name: String) -> Self {
+        Self { name, version: None }
+    }
+    
+    fn version(mut self, v: String) -> Self {
+        self.version = Some(v);
+        self
+    }
+    
+    fn build(self) -> Package {
+        Package {
+            name: self.name,
+            version: self.version.unwrap_or_else(|| "latest".to_string()),
+        }
+    }
+}
+```
+
+### **Day 93**
+- **Material:** `newtype` pattern
+- **Exercise:** (30 min)
+```rust
+struct PackageName(String);
+
+impl PackageName {
+    fn new(s: String) -> Result<Self, MetapacError> {
+        if s.is_empty() {
+            Err(MetapacError::InvalidName)
+        } else {
+            Ok(PackageName(s))
+        }
+    }
+}
+```
+
+### **Day 94**
+- **Material:** Type state pattern
+- **Reading:** Research compile-time state machines (15 min)
+- **Exercise:** (15 min)
+```rust
+struct Uninstalled;
+struct Installed;
+
+struct Package<State> {
+    name: String,
+    _state: PhantomData<State>,
+}
+
+impl Package<Uninstalled> {
+    fn install(self) -> Package<Installed> {
+        // Can only call on Uninstalled packages
+        Package { name: self.name, _state: PhantomData }
+    }
+}
+```
+
+### **Day 95**
+- **Material:** `From` and `Into` traits
+- **Exercise:** (30 min)
+```rust
+impl From<&str> for Package {
+    fn from(s: &str) -> Self {
+        Package { name: s.to_string() }
+    }
+}
+
+let pkg: Package = "vim".into();
+```
+
+### **Day 96**
+- **PROJECT:** Refactor using advanced patterns
+- **Task:** (30 min)
+  - Apply builder pattern to complex config
+  - Use newtype for validated data
+
+### **Day 97**
+- **Material:** Documentation
+- **Exercise:** (30 min)
+```rust
+/// Installs a package on the system.
+///
+/// # Examples
+///
+/// ```
+/// let pkg = Package::new("vim");
+/// pkg.install()?;
+/// ```
+///
+/// # Errors
+///
+/// Returns `MetapacError::InstallFailed` if the package cannot be installed.
+pub fn install(&self) -> Result<(), MetapacError> {
+    // ...
+}
+```
+Run `cargo doc --open`.
+
+### **Day 98**
+- **Review Day:** Write comprehensive README.md
+- **Reflection:** Could someone else use `metapac` now?
+
+---
+
+## **WEEK 15: Polish & Edge Cases**
+**Theme:** "Production deployment"
+
+### **Day 99**
+- **Material:** Error messages
+- **Exercise:** (30 min)
+  - Replace all generic errors with specific, helpful messages
+  - Add suggestions ("Did you mean 'vim'?")
+
+### **Day 100**
+- **Material:** Configuration validation
+- **Exercise:** (30 min)
+  - Validate config on load
+  - Check for duplicates
+  - Warn about deprecated options
+
+### **Day 101**
+- **Material:** Rollback on failure
+- **Exercise:** (30 min)
+  - If installation fails halfway, undo changes
+  - Store state before operations
+
+### **Day 102**
+- **Material:** Permission handling
+- **Exercise:** (30 min)
+  - Check if running as root when needed
+  - Provide helpful error if not
+
+### **Day 103**
+- **PROJECT:** Cross-platform support
+- **Task:** (30 min)
+  - Test on Linux and macOS (if possible)
+  - Fix platform-specific issues
+
+### **Day 104**
+- **Material:** CI/CD setup
+- **Exercise:** (30 min)
+  - Create `.github/workflows/ci.yml`
+  - Run tests on every commit
+
+### **Day 105**
+- **Review Day:** Security audit
+  - Check for command injection vulnerabilities
+  - Validate all user input
+
+---
+
+## **WEEK 16: Mastery & Beyond**
+**Theme:** "What's next?"
+
+### **Day 106**
+- **Material:** Publishing to crates.io
+- **Reading:** Cargo book on publishing (15 min)
+- **Exercise:** (15 min)
+  - Fill out `Cargo.toml` metadata
+  - Write CHANGELOG.md
+
+### **Day 107**
+- **Material:** Semantic versioning
+- **Exercise:** (30 min)
+  - Tag v0.1.0
+  - Understand when to bump major/minor/patch
+
+### **Day 108**
+- **Material:** Community standards
+- **Exercise:** (30 min)
+  - Add CONTRIBUTING.md
+  - Add CODE_OF_CONDUCT.md
+  - Set up issue templates
+
+### **Day 109**
+- **PROJECT:** Feature complete
+- **Task:** (30 min)
+  - Triage remaining TODOs
+  - Close or defer feature requests
+
+### **Day 110**
+- **Material:** Performance profiling
+- **Exercise:** (30 min)
+  - Run under `perf` or `Instruments`
+  - Document performance characteristics
+
+### **Day 111**
+- **Material:** Advanced Rust topics
+- **Reading:** Research (30 min)
+  - Unsafe Rust
+  - Macros
+  - FFI (calling C from Rust)
+
+### **Day 112 (Final Day)**
+- **FINAL EXAM:** Ship it.
+  - Tag v1.0.0
+  - Publish to crates.io (or keep private)
+  - Write a blog post about what you learned
+  - **Most importantly:** Use `metapac` to manage your own packages.
+
+---
+
+## **GRADING RUBRIC**
+
+### **A (90-100%)**
+- `metapac` successfully syncs packages on your system
+- Code compiles with zero warnings
+- 80%+ test coverage
+- Comprehensive documentation
+- You can explain ownership to someone else
+
+### **B (80-89%)**
+- `metapac` works for basic use cases
+- Few compiler warnings
+- Core functionality tested
+- Basic documentation
+
+### **C (70-79%)**
+- `metapac` compiles and runs
+- Some warnings remain
+- Manual testing only
+- Minimal documentation
+
+### **D (60-69%)**
+- Code compiles but doesn't work correctly
+- Many warnings
+- No tests
+
+### **F (<60%)**
+- Incomplete project
+- Does not compile
+- Skipped more than 20% of daily exercises
+
+---
+
+## **OFFICE HOURS NOTES**
+
+### **Common Pitfalls:**
+1. **Day 8-12:** You will want to quit here. Don't. This is the valley of despair. Every Rust programmer goes through it.
+2. **Day 40:** Confusion between `impl Trait` and `dyn Trait`. Draw diagrams.
+3. **Day 61:** Parsing command output is messy. Use regex crate.
+4. **Day 78-84:** Async is optional. Skip if overwhelmed.
+
+### **When You're Stuck:**
+1. Read the compiler error **completely**. It tells you exactly what's wrong.
+2. Search the error message verbatim.
+3. Ask on r/rust or Rust Discord.
+4. Come to office hours (post in the thread).
+
+### **Extensions (Post-graduation):**
+- Add dependency resolution (hard: NP-complete SAT solving)
+- Support Flatpak/Snap/Nix
+- GUI with `egui`
+- Publish to crates.io for real
+
+---
+
+**Final Words:**
+
+This is 112 days of focused work. You will feel stupid around Day 10. You will feel brilliant around Day 90. This is normal.
+
+Rust is not "better" than Java. It solves different problems. But after this course, you will write Java differently. You will see memory. You will see lifetimes. You will see hidden costs.
+
+Your first code review will be harsh. The borrow checker is unforgiving. But when your code compiles, it *works*. No null pointer exceptions at 3 AM. No race conditions in production.
+
+Welcome to systems programming. Class dismissed.
+
+Now go write some Rust.
