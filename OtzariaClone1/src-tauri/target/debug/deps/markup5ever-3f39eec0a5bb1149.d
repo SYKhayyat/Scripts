@@ -1,0 +1,15 @@
+/home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/deps/markup5ever-3f39eec0a5bb1149.d: /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/lib.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/data/mod.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/interface/mod.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/interface/tree_builder.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/serialize.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/util/buffer_queue.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/util/smallcharset.rs /home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/build/markup5ever-008777ced1e89232/out/generated.rs /home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/build/markup5ever-008777ced1e89232/out/named_entities.rs
+
+/home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/deps/libmarkup5ever-3f39eec0a5bb1149.rmeta: /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/lib.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/data/mod.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/interface/mod.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/interface/tree_builder.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/serialize.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/util/buffer_queue.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/util/smallcharset.rs /home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/build/markup5ever-008777ced1e89232/out/generated.rs /home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/build/markup5ever-008777ced1e89232/out/named_entities.rs
+
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/lib.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/data/mod.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/interface/mod.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/interface/tree_builder.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/serialize.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/util/buffer_queue.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.11.0/util/smallcharset.rs:
+/home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/build/markup5ever-008777ced1e89232/out/generated.rs:
+/home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/build/markup5ever-008777ced1e89232/out/named_entities.rs:
+
+# env-dep:OUT_DIR=/home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/build/markup5ever-008777ced1e89232/out

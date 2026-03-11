@@ -1,0 +1,222 @@
+# How to Build and Run Otzaria
+
+This document explains how to build and run the Otzaria Torah library application.
+
+## Prerequisites
+
+### For NixOS (Recommended)
+- Nix with flakes enabled
+- Git
+
+### For Other Linux Distributions
+- Rust (rustup)
+- Node.js (v20+)
+- System dependencies:
+  - `sudo apt-get install libgtk-3-0 libblkid1 liblzma5` (Ubuntu/Debian)
+  - `sudo dnf install gtk3 webkit2gtk` (Fedora)
+
+### For macOS
+- Rust (rustup)
+- Node.js (v20+)
+
+### For Windows
+- Visual C++ Redistributable
+- Rust (rustup)
+- Node.js (v20+)
+
+---
+
+## Quick Start (NixOS)
+
+```bash
+# 1. Enter the development environment
+nix develop
+
+# 2. Install npm dependencies
+npm install
+
+# 3. Run the application in development mode
+npm run dev
+```
+
+---
+
+## Quick Start (Other Systems)
+
+```bash
+# 1. Install npm dependencies
+npm install
+
+# 2. Run the application in development mode
+npm run dev
+```
+
+---
+
+## Downloading the Library
+
+The app comes with sample data. To get the full Jewish library:
+
+### Option 1: Download Essential Texts (Quick)
+
+```bash
+# This downloads Torah, Mishna, and Pirkei Avot from Sefaria
+python3 scripts/download_library.py
+```
+
+Select option 1 when prompted.
+
+### Option 2: Download Full Library (Recommended)
+
+```bash
+# Make the clone script executable
+chmod +x scripts/clone_library.sh
+
+# Run the script
+./scripts/clone_library.sh
+```
+
+This downloads ~500MB of texts from the otzaria-library repository.
+
+### Option 3: Manual Download
+
+1. Visit: https://github.com/zevisvei/otzaria-library/releases
+2. Download the latest release
+3. Extract to the `library/` folder
+
+---
+
+## After Downloading the Library
+
+1. Run the app: `npm run dev`
+2. The app will automatically index the texts
+3. Search for texts like "Genesis", "light", "Moses", etc.
+
+---
+
+## Building for Production
+
+```bash
+# Build the application
+npm run build
+
+# The built application will be in:
+# src-tauri/target/release/bundle/
+```
+
+---
+
+## Project Structure
+
+```
+otzaria/
+├── flake.nix              # NixOS development environment
+├── package.json           # npm dependencies
+├── src-tauri/
+│   ├── Cargo.toml        # Rust dependencies
+│   ├── tauri.conf.json   # Tauri configuration
+│   ├── build.rs          # Build script
+│   └── src/main.rs       # Rust backend (search engine)
+├── src/
+│   ├── index.html        # Main HTML
+│   ├── styles.css        # All styles
+│   ├── main.js           # Core frontend logic
+│   └── advanced-features.js  # Advanced features
+├── scripts/
+│   ├── download_library.py   # Download texts from Sefaria
+│   └── clone_library.sh      # Clone full library
+├── library/              # Your texts go here
+└── otzaria_index/       # Search index (auto-created)
+```
+
+---
+
+## Features
+
+### Core Features
+- Full-text search (powered by Tantivy)
+- Dual-pane UI (text + commentary)
+- Library browser
+- Bookmarks
+- Reading history
+
+### Advanced Features
+- Hebrew text normalization (search with/without nikud)
+- Notes per verse
+- Workspaces (save layouts)
+- Gematria calculator
+- Study session tracking
+- Text-to-speech
+- Export (Plain text, Markdown, HTML)
+
+### Keyboard Shortcuts
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+K | Focus search |
+| Ctrl+B | Bookmarks |
+| Ctrl+H | History |
+| Ctrl+L | Library |
+| Ctrl+D | Bookmark current |
+| Ctrl+E | Export |
+| Ctrl+, | Settings |
+| Esc | Close/Back |
+
+---
+
+## Troubleshooting
+
+### "command not found: tauri"
+```bash
+npm install
+```
+
+### Rust compilation errors
+```bash
+# Update Rust
+rustup update
+
+# Clean rebuild
+cargo clean and
+npm run dev
+```
+
+### Library not being indexed
+```bash
+# Reindex the library from the app settings
+# OR run:
+npm run dev
+# The app will auto-index on first run
+```
+
+### WebView not found (Linux)
+```bash
+# Install webkit2gtk
+sudo apt-get install libgtk-3-0 libblkid1 liblzma5
+```
+
+---
+
+## Development Commands
+
+```bash
+# Run in development mode
+npm run dev
+
+# Build for production
+npm run build
+
+# Run Tauri commands directly
+npm run tauri dev
+npm run tauri build
+
+# Open Tauri debug tools
+npm run tauri dev -- --debug
+```
+
+---
+
+## Credits
+
+- Original Otzaria: https://github.com/Sivan22/otzaria
+- Library source: https://github.com/zevisvei/otzaria-library
+- Texts from Sefaria: https://www.sefaria.org/

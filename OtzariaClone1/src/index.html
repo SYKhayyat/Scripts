@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Otzaria - Torah Library</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>📚 אוצריא</h1>
+                <p>Torah Library</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="tabs">
+                <button class="tab active" data-tab="search">🔍 Search</button>
+                <button class="tab" data-tab="library">📖 Library</button>
+                <button class="tab" data-tab="bookmarks">⭐ Bookmarks</button>
+                <button class="tab" data-tab="history">🕐 History</button>
+            </div>
+
+            <!-- Search Tab -->
+            <div class="tab-content active" id="search-tab">
+                <div class="search-box">
+                    <input
+                        type="text"
+                        id="searchInput"
+                        placeholder="Search... (e.g., 'light', 'משה')"
+                    />
+                    <button id="searchBtn">Search</button>
+                </div>
+                <div class="results-section">
+                    <h3>Results</h3>
+                    <div id="resultsList"></div>
+                </div>
+            </div>
+
+            <!-- Library Tab -->
+            <div class="tab-content" id="library-tab">
+                <div class="library-tree" id="libraryTree">
+                    <div class="tree-loading">Loading library...</div>
+                </div>
+            </div>
+
+            <!-- Bookmarks Tab -->
+            <div class="tab-content" id="bookmarks-tab">
+                <div class="bookmarks-list" id="bookmarksList">
+                    <p class="empty-state">No bookmarks yet</p>
+                </div>
+            </div>
+
+            <!-- History Tab -->
+            <div class="tab-content" id="history-tab">
+                <div class="history-list" id="historyList">
+                    <p class="empty-state">No history yet</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Welcome Screen -->
+            <div class="welcome" id="welcomeScreen">
+                <h2>Welcome to Otzaria</h2>
+                <p>A modern Torah library for NixOS</p>
+                <div class="features">
+                    <div class="feature">
+                        <h3>🔍 Fast Search</h3>
+                        <p>Powered by Tantivy (Rust)</p>
+                    </div>
+                    <div class="feature">
+                        <h3>📖 Dual Pane</h3>
+                        <p>Study text and commentary side-by-side</p>
+                    </div>
+                    <div class="feature">
+                        <h3>🚀 Native Performance</h3>
+                        <p>Built with Tauri</p>
+                    </div>
+                </div>
+                <div class="quick-actions">
+                    <h3>Quick Start:</h3>
+                    <button class="action-btn" onclick="switchTab('search')">🔍 Search Texts</button>
+                    <button class="action-btn" onclick="switchTab('library')">📖 Browse Library</button>
+                </div>
+            </div>
+
+            <!-- Dual Pane View -->
+            <div class="dual-pane-container" id="dualPaneView" style="display: none;">
+                <!-- Toolbar -->
+                <div class="toolbar">
+                    <button id="closeBtn" title="Back to welcome">✕</button>
+                    <div class="toolbar-title" id="toolbarTitle">Loading...</div>
+                    <div class="toolbar-actions">
+                        <button id="toggleNikudBtn" title="Toggle vowels">א̇</button>
+                        <button id="fontSizeUpBtn" title="Increase font">A+</button>
+                        <button id="fontSizeDownBtn" title="Decrease font">A-</button>
+                        <button id="bookmarkBtn" title="Bookmark this">⭐</button>
+                        <button id="settingsBtn" title="Settings">⚙️</button>
+                    </div>
+                </div>
+
+                <!-- Panes -->
+                <div class="panes">
+                    <div class="pane" id="leftPane">
+                        <div class="pane-header">
+                            <h3>Main Text</h3>
+                            <button class="pane-swap" title="Swap panes">⇄</button>
+                        </div>
+                        <div class="pane-content" id="leftContent">
+                            <p class="loading">Loading...</p>
+                        </div>
+                    </div>
+
+                    <div class="pane-divider" id="paneDivider"></div>
+
+                    <div class="pane" id="rightPane">
+                        <div class="pane-header">
+                            <h3>Commentary</h3>
+                            <select id="commentarySelector">
+                                <option value="rashi">Rashi</option>
+                                <option value="ramban">Ramban</option>
+                                <option value="ibn-ezra">Ibn Ezra</option>
+                                <option value="none">None</option>
+                            </select>
+                        </div>
+                        <div class="pane-content" id="rightContent">
+                            <p class="empty-state">Select a commentary or search result</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Settings</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label>Theme</label>
+                    <select id="themeSelector">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="sepia">Sepia</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>Default Font Size</label>
+                    <input type="range" id="fontSizeSlider" min="14" max="28" value="18">
+                    <span id="fontSizeDisplay">18px</span>
+                </div>
+                <div class="setting-group">
+                    <label>Hebrew Font</label>
+                    <select id="hebrewFontSelector">
+                        <option value="frank">Frank Ruehl</option>
+                        <option value="david">David Libre</option>
+                        <option value="taamey">Taamey Frank</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="autoSaveHistory">
+                        Auto-save reading history
+                    </label>
+                </div>
+                <button id="reindexBtn" class="action-btn">🔄 Reindex Library</button>
+                <button id="downloadLibraryBtn" class="action-btn">📥 Download Library</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+    <script type="module" src="advanced-features.js"></script>
+</body>
+</html>

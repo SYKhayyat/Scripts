@@ -1,0 +1,10 @@
+/home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/deps/levenshtein_automata-0fa27ce9684e00e5.d: /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/lib.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/alphabet.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/dfa.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/index.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/levenshtein_nfa.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/parametric_dfa.rs
+
+/home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/deps/liblevenshtein_automata-0fa27ce9684e00e5.rmeta: /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/lib.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/alphabet.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/dfa.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/index.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/levenshtein_nfa.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/parametric_dfa.rs
+
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/lib.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/alphabet.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/dfa.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/index.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/levenshtein_nfa.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/levenshtein_automata-0.2.1/src/parametric_dfa.rs:

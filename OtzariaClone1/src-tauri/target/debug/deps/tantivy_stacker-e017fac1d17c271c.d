@@ -1,0 +1,10 @@
+/home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/deps/tantivy_stacker-e017fac1d17c271c.d: /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/lib.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/arena_hashmap.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/expull.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/fastcmp.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/fastcpy.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/memory_arena.rs
+
+/home/shaul/Scripts/OtzariaClone1/src-tauri/target/debug/deps/libtantivy_stacker-e017fac1d17c271c.rmeta: /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/lib.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/arena_hashmap.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/expull.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/fastcmp.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/fastcpy.rs /home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/memory_arena.rs
+
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/lib.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/arena_hashmap.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/expull.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/fastcmp.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/fastcpy.rs:
+/home/shaul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tantivy-stacker-0.2.0/src/memory_arena.rs:
